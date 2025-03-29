@@ -29,8 +29,6 @@ import { VariableDeclarator } from './lib/ast/classes/VariableDeclarator';
 
 // import context
 import { ContextAnalyzer } from "./lib/context/classes/ContextAnalyzer";
-import { ContextTracker } from "./lib/context/classes/ContextTracker";
-import { Scope } from "./lib/context/classes/Scope";
 
 export {
   // base classes
@@ -61,7 +59,5 @@ export {
   VariableDeclaration,
   VariableDeclarator,
   //context
-  ContextAnalyzer,
-  ContextTracker,
-  Scope
+  ContextAnalyzer
 }
