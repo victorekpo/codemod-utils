@@ -20,20 +20,29 @@ export class ContextAnalyzer {
    */
   async analyzeFile(filePath: string, contextMap: Map<string, any>): Promise<void> {
     const code = await fs.readFile(filePath, "utf-8");
+    const lines = code.split("\n"); // Store lines for quick access
     const root: Collection = this.j(code);
 
     // Track Imports
     root.find(this.j.ImportDeclaration).forEach((p) => {
       const moduleName = p.node.source.value;
       if (typeof moduleName === "string") {
-        // Resolve relative path imports
         const resolvedPath = moduleName.startsWith(".")
           ? nodePath.resolve(nodePath.dirname(filePath), moduleName)
           : moduleName;
 
-        // Add import to context
-        const uniqueId = this.addVariable(filePath, moduleName, p.node, contextMap);
-        this.trackImport(uniqueId, filePath, p.node, "import", resolvedPath, contextMap);
+        // Extract the imported variable name instead of using moduleName
+        const importedSpecifiers = p.node.specifiers?.map((specifier) => {
+          if (n.ImportSpecifier.check(specifier) || n.ImportDefaultSpecifier.check(specifier)) {
+            return specifier.local.name;
+          }
+          return null;
+        }).filter(Boolean) as string[];
+
+        importedSpecifiers.forEach((importedVarName) => {
+          const uniqueId = this.addVariable(filePath, importedVarName, p.node, contextMap);
+          this.trackImport(uniqueId, filePath, p.node, "import", importedVarName, moduleName, resolvedPath, contextMap);
+        });
       }
     });
 
@@ -42,7 +51,7 @@ export class ContextAnalyzer {
       if (n.Identifier.check(p.node.id)) {
         const varName = p.node.id.name;
         const uniqueId = this.addVariable(filePath, varName, p.node, contextMap);
-        this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "declaration" }, contextMap);
+        this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "declaration" }, lines, contextMap);
       }
     });
 
@@ -51,7 +60,7 @@ export class ContextAnalyzer {
       const varName = p.node.name;
       const uniqueId = this.lookupVariable(varName, contextMap);
       if (uniqueId) {
-        this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "expression" }, contextMap);
+        this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "expression" }, lines, contextMap);
       }
     });
 
@@ -135,6 +144,7 @@ export class ContextAnalyzer {
         file: filePath,
         varName,
         originalDefinition: this.j(node).toSource(),
+        position: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
         usages: [],
         exports: [],
         imports: [],
@@ -151,16 +161,21 @@ export class ContextAnalyzer {
    * @param node - The AST node for the import.
    * @param importType - The type of the import (e.g., "import").
    * @param importedAs - The module being imported.
+   * @param importedFrom - The original module string from the import statement.
+   * @param importedFromFile - The original module file string from the import statement.
    * @param contextMap - The map storing all variable contexts.
    */
-  trackImport(uniqueId: string, file: string, node: any, importType: string, importedAs: string, contextMap: Map<string, any>): void {
+  trackImport(uniqueId: string, file: string, node: any, importType: string, importedAs: string, importedFrom: string, importedFromFile: string, contextMap: Map<string, any>): void {
     const context = contextMap.get(uniqueId);
     if (context) {
       context.imports.push({
         code: this.j(node).toSource(),
         file,
+        position: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
         importType,
         importedAs,
+        importedFrom,
+        importedFromFile
       });
     }
   }
@@ -172,14 +187,21 @@ export class ContextAnalyzer {
    * @param node - The AST node for the usage.
    * @param type - The type of the usage (e.g., "usage").
    * @param details - Additional details about the usage.
+   * @param lines - Additional details about the usage.
    * @param contextMap - The map storing all variable contexts.
    */
-  trackUsage(uniqueId: string, file: string, node: any, type: string, details: Record<string, unknown>, contextMap: Map<string, any>): void {
+  trackUsage(uniqueId: string, file: string, node: any, type: string, details: Record<string, unknown>, lines: string[], contextMap: Map<string, any>): void {
     const context = contextMap.get(uniqueId);
     if (context) {
+      // const fullStatement = this.extractFullStatement(node);
+      const position = node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null;
+      const fullLine = position ? lines[position.line - 1].trim() : null; // Get the full line
+
       context.usages.push({
         code: this.j(node).toSource(),
+        fullLine,
         file,
+        position, //: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
         type,
         details,
       });
@@ -201,6 +223,7 @@ export class ContextAnalyzer {
       context.exports.push({
         code: this.j(node).toSource(),
         file,
+        position: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
         exportType,
         exportedAs,
       });
@@ -232,5 +255,21 @@ export class ContextAnalyzer {
 
   getGraph(): any {
     return this.contextMap;
+  }
+
+  private extractFullStatement(node: any): string {
+    let current = node;
+    console.log("NODE", node);
+    while (current && current.parent && !this.isTopLevelStatement(current.parent)) {
+      current = current.parent;
+    }
+    return this.j(current).toSource();
+  }
+
+  private isTopLevelStatement(node: any): boolean {
+    return [
+      "VariableDeclaration", "ExpressionStatement", "ReturnStatement",
+      "IfStatement", "WhileStatement", "ForStatement"
+    ].includes(node.type);
   }
 }
