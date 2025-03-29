@@ -1,31 +1,34 @@
 // import base classes
-import { ChainElement } from "./lib/classes/base/ChainElement";
-import { Expression } from "./lib/classes/base/Expression";
-import { FunctionClass } from "./lib/classes/base/Function";
-import { Identifier } from "./lib/classes/base/Identifier";
-import { Node } from "./lib/classes/base/Node";
-import { Pattern } from "./lib/classes/base/Pattern";
-import { Printable } from "./lib/classes/base/Printable";
-import { Statement } from "./lib/classes/base/Statement";
+import { ChainElement } from "./lib/ast/classes/base/ChainElement";
+import { Expression } from "./lib/ast/classes/base/Expression";
+import { FunctionClass } from "./lib/ast/classes/base/Function";
+import { Identifier } from "./lib/ast/classes/base/Identifier";
+import { Node } from "./lib/ast/classes/base/Node";
+import { Pattern } from "./lib/ast/classes/base/Pattern";
+import { Printable } from "./lib/ast/classes/base/Printable";
+import { Statement } from "./lib/ast/classes/base/Statement";
 
 // import classes
-import { ArrowFunctionExpression } from './lib/classes/ArrowFunctionExpression';
-import { CallExpression } from './lib/classes/CallExpression';
-import { ClassDeclaration } from './lib/classes/ClassDeclaration';
-import { ClassMethodDefinition } from './lib/classes/ClassMethodDefinition';
-import { ExportNamedDeclaration } from './lib/classes/ExportNamedDeclaration';
-import { File } from './lib/classes/File';
-import { FunctionDeclaration } from './lib/classes/FunctionDeclaration';
-import { FunctionExpression } from './lib/classes/FunctionExpression';
-import { IfStatement } from './lib/classes/IfStatement';
-import { ImportDeclaration } from './lib/classes/ImportDeclaration';
-import { MetaProperty } from './lib/classes/MetaProperty';
-import { Program } from './lib/classes/Program';
-import { ReturnStatement } from './lib/classes/ReturnStatement';
-import { TaggedTemplateExpression } from './lib/classes/TaggedTemplateExpression';
-import { TemplateLiteral } from './lib/classes/TemplateLiteral';
-import { VariableDeclaration } from './lib/classes/VariableDeclaration';
-import { VariableDeclarator } from './lib/classes/VariableDeclarator';
+import { ArrowFunctionExpression } from './lib/ast/classes/ArrowFunctionExpression';
+import { CallExpression } from './lib/ast/classes/CallExpression';
+import { ClassDeclaration } from './lib/ast/classes/ClassDeclaration';
+import { ClassMethodDefinition } from './lib/ast/classes/ClassMethodDefinition';
+import { ExportNamedDeclaration } from './lib/ast/classes/ExportNamedDeclaration';
+import { File } from './lib/ast/classes/File';
+import { FunctionDeclaration } from './lib/ast/classes/FunctionDeclaration';
+import { FunctionExpression } from './lib/ast/classes/FunctionExpression';
+import { IfStatement } from './lib/ast/classes/IfStatement';
+import { ImportDeclaration } from './lib/ast/classes/ImportDeclaration';
+import { MetaProperty } from './lib/ast/classes/MetaProperty';
+import { Program } from './lib/ast/classes/Program';
+import { ReturnStatement } from './lib/ast/classes/ReturnStatement';
+import { TaggedTemplateExpression } from './lib/ast/classes/TaggedTemplateExpression';
+import { TemplateLiteral } from './lib/ast/classes/TemplateLiteral';
+import { VariableDeclaration } from './lib/ast/classes/VariableDeclaration';
+import { VariableDeclarator } from './lib/ast/classes/VariableDeclarator';
+
+// import context
+import { ContextAnalyzer } from "./lib/context/classes/ContextAnalyzer";
 
 export {
   // base classes
@@ -54,5 +57,7 @@ export {
   TaggedTemplateExpression,
   TemplateLiteral,
   VariableDeclaration,
-  VariableDeclarator
+  VariableDeclarator,
+  //context
+  ContextAnalyzer
 }
