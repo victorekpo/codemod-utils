@@ -36,12 +36,16 @@
   "dependencies": {
     "ast-types": "^0.16.1",
     "axios": "^1.8.1",
-    "jscodeshift": "^17.1.2"
+    "fast-glob": "^3.3.3",
+    "jscodeshift": "^17.1.2",
+    "recast": "^0.23.11",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.3",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-typescript": "^12.1.2",
+    "@types/node": "^22.13.14",
     "rollup": "^4.37.0",
     "tslib": "^2.8.1"
   }
