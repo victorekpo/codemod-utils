@@ -1,6 +1,6 @@
 {
   "name": "@victorekpo/codemod-utils",
-  "version": "0.0.1",
+  "version": "0.0.2-beta.1.2",
   "description": "Codemod utils",
   "keywords": [],
   "homepage": "https://github.com/victorekpo/codemod-utils#readme",
@@ -10,13 +10,15 @@
   "repository": {
     "url": "git://github.com/victorekpo/codemod-utils.git"
   },
+  "files": [
+    "dist"
+  ],
   "license": "ISC",
   "author": "Victor Ekpo",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
-    "./jest.config.js": "./jest.config.js",
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs",
@@ -25,13 +27,11 @@
   },
   "type": "module",
   "scripts": {
-    "build": "rm -rf dist && rollup -c",
+    "build": "rm -rf dist && npm run type-check && rollup -c",
     "type-check": "tsc --noEmit",
-    "cjs": "node dist/testFetch.cjs",
-    "mjs": "node dist/testFetch.mjs",
     "test": "NODE_OPTIONS=\"--experimental-vm-modules\" jest",
-    "pack": "npm pack && mv victorekpo-codemod-0.0.1.tgz codemod.tgz",
-    "publish": "npm publish --access public"
+    "pack": "npm pack && mv victorekpo-codemod-utils-0.0.1.tgz codemod-utils.tgz",
+    "publish:github": "npm run build && npm publish --access public"
   },
   "dependencies": {
     "ast-types": "^0.16.1",
@@ -44,6 +44,5 @@
     "@rollup/plugin-typescript": "^12.1.2",
     "rollup": "^4.37.0",
     "tslib": "^2.8.1"
-  },
-  "//": "Make sure type is set to \"module\" for ESM support. Why \"exports\"?\nJest fails to load the config file properly without explicitly allowing it via \"exports\"."
+  }
 }

@@ -1,4 +1,5 @@
 import { namedTypes as N } from "ast-types";
+import { Node } from "./base/Node";
 import { Statement } from "./base/Statement";
 import { ChainElement } from "./base/ChainElement";
 import {
@@ -13,7 +14,7 @@ import {
   TypeParameterInstantiationKind
 } from "ast-types/gen/kinds";
 
-export class ClassDeclaration extends Statement<N.ClassDeclaration> implements ChainElement<N.ClassDeclaration> {
+export class ClassDeclaration extends Node<N.ClassDeclaration> implements Statement<N.ClassDeclaration>, ChainElement<N.ClassDeclaration> {
   id: IdentifierKind | null;
   body: ClassBodyKind;
   superClass?: ExpressionKind | null;

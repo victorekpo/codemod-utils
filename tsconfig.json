@@ -14,5 +14,8 @@
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "declarationDir": "dist"
-  }
+  },
+  "include": [
+    "src"
+  ]
 }
