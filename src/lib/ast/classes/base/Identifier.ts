@@ -3,7 +3,6 @@ import { Node } from "./Node";
 import { Expression } from "./Expression";
 import { Pattern } from "./Pattern";
 import { IdentifierKind, TSTypeAnnotationKind, TypeAnnotationKind } from "ast-types/gen/kinds";
-import { namedTypes as n } from "ast-types/gen/namedTypes";
 
 export class Identifier extends Node<N.Identifier> implements Expression<N.Identifier>, Pattern<N.Identifier> {
   name: string;
@@ -40,7 +39,7 @@ export class Identifier extends Node<N.Identifier> implements Expression<N.Ident
   }
 
   static checkIdentifierName(identifier: string | IdentifierKind): string {
-    if (n.Identifier.check(identifier)) {
+    if (N.Identifier.check(identifier)) {
       return identifier.name;
     } else if (typeof identifier === "object" && "name" in identifier) {
       return identifier.name as string;

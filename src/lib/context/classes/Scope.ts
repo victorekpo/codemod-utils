@@ -1,7 +1,5 @@
 // A helper class for tracking variable declarations in a scope
 
-import { namedTypes } from "ast-types";
-
 export class Scope {
   readonly parent: Scope | null;
   private declarations: Map<string, string>;

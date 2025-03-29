@@ -1,15 +1,20 @@
 import typescript from '@rollup/plugin-typescript';
 import nodeResolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import fs from 'node:fs';
+import { resolve } from "node:path";
+import {builtinModules, createRequire} from "node:module";
 
 // Read the package.json
-const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
+const require = createRequire(import.meta.url);
+const pkg = require(resolve("./package.json"));
 
 // Get dependencies and peerDependencies from package.json
 const external = [
+  ...builtinModules,
   ...Object.keys(pkg.dependencies || {}),
-  ...Object.keys(pkg.peerDependencies || {}),
+  ...Object.keys(pkg.bundleDependencies || {}),
+  ...Object.keys(pkg.optionalDependencies || {}),
+  ...Object.keys(pkg.peerDependencies || {})
 ];
 
 export default {

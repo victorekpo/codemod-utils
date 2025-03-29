@@ -1,171 +1,113 @@
-// This class uses recast and ast-types to walk through a file's AST,
-// uses a helper Scope class for variable resolution, and uses ContextTracker
-// to record all events related to variable definitions, usages, transformations, etc.
-
-import recast from "recast";
-import { visit, Visitor, namedTypes as n } from "ast-types";
-import fs from "node:fs";
-import path from "node:path";
-import fastGlob from "fast-glob";
+import jscodeshift, { Collection } from "jscodeshift";
+import { namedTypes as n } from "ast-types";
+import fs from "fs/promises";
+import nodePath from "node:path";
 
 import { Scope } from "./Scope";
 import { ContextTracker } from "./ContextTracker";
-import { Identifier } from "../../ast/classes/base/Identifier";
 
 export class ContextAnalyzer {
   private tracker: ContextTracker;
+  private moduleTypes: Map<string, "esm" | "cjs" | "unknown"> = new Map();
 
   constructor() {
-    // Create a single tracker instance for this analysis
     this.tracker = new ContextTracker();
   }
 
-  /**
-   * Analyze a single file and update the dependency graph.
-   * @param {string} filePath - Path to the file.
-   */
-  analyzeFile(filePath: string): void {
-    const code = fs.readFileSync(filePath, "utf-8");
-    const ast = recast.parse(code, { parser: require("recast/parsers/babel-ts") });
+  async analyzeFile(filePath: string): Promise<{ localDeps: string[]; unusedImports: string[] }> {
+    const code = await fs.readFile(filePath, "utf-8");
+    const j = jscodeshift.withParser("babel-ts");
+    const root: Collection = j(code);
 
-    // Create a local scope for the file.
+    const esmFound = root.find(j.ImportDeclaration).size() > 0 || root.find(j.ExportDeclaration).size() > 0;
+    const cjsFound = root.find(j.CallExpression, { callee: { name: "require" } }).size() > 0;
+    const moduleType: "esm" | "cjs" | "unknown" = esmFound ? "esm" : cjsFound ? "cjs" : "unknown";
+    this.moduleTypes.set(filePath, moduleType);
+
     let currentScope: Scope = new Scope();
+    const localDeps: Set<string> = new Set();
+    const importTracker: Map<string, string> = new Map();
 
-    const pushScope = () => {
-      currentScope = new Scope(currentScope);
-    };
-    const popScope = () => {
-      if (currentScope.parent) {
-        currentScope = currentScope.parent;
+    // Track Imports
+    root.find(j.ImportDeclaration).forEach((p) => {
+      const moduleName = p.node.source.value;
+      if (typeof moduleName === "string") {
+        const resolved = moduleName.startsWith(".") ? nodePath.resolve(nodePath.dirname(filePath), moduleName) : moduleName;
+        if (moduleName.startsWith(".")) localDeps.add(resolved);
+
+        const uniqueId = this.tracker.addVariable(filePath, moduleName, p.node);
+        this.tracker.trackImport(uniqueId, filePath, p.node, moduleName.startsWith(".") ? "import" : "import-external", moduleName);
+        importTracker.set(moduleName, uniqueId);
       }
-    };
+    });
 
-    // Capture the instance of ContextAnalyzer so we can refer to tracker inside visitor functions.
-    const self = this;
+    // Track Re-Exports
+    root.find(j.ExportAllDeclaration).forEach((p) => {
+      const moduleName = p.node.source.value;
+      if (typeof moduleName === "string") {
+        const resolved = moduleName.startsWith(".") ? nodePath.resolve(nodePath.dirname(filePath), moduleName) : moduleName;
+        const uniqueId = this.tracker.addVariable(filePath, moduleName, p.node);
+        this.tracker.trackExport(uniqueId, filePath, p.node, moduleName.startsWith(".") ? "reExport" : "reExport-external", moduleName);
+        if (moduleName.startsWith(".")) localDeps.add(resolved);
+      }
+    });
 
-    // Visitor methods for AST traversal
-    visit(ast, {
-      // When entering a function declaration, create a new scope.
-      visitFunctionDeclaration(path) {
-        pushScope();
-        this.traverse(path);
-        popScope();
-        return false;
-      },
-      // When entering a function expression, create a new scope.
-      visitFunctionExpression(path) {
-        pushScope();
-        this.traverse(path);
-        popScope();
-        return false;
-      },
-      // When entering an arrow function expression, create a new scope.
-      visitArrowFunctionExpression(path) {
-        pushScope();
-        this.traverse(path);
-        popScope();
-        return false;
-      },
-      // When entering a block, create a new scope.
-      visitBlockStatement(path) {
-        pushScope();
-        this.traverse(path);
-        popScope();
-        return false;
-      },
-      // Record variable declarations.
-      visitVariableDeclarator(path) {
-        const node = path.node;
-        if (n.Identifier.check(node.id)) {
-          const varName = node.id.name;
-          const uniqueId = self.tracker.addVariable(filePath, varName, node);
-          currentScope.addDeclaration(varName, uniqueId);
-        } else if (n.ObjectPattern.check(node.id)) {
-          // Handle destructuring: e.g., const { a, b } = obj;
-          node.id.properties.forEach((prop) => {
-            if (n.Property.check(prop) && n.Identifier.check(prop.value)) {
-              const varName = prop.value.name;
-              const uniqueId = self.tracker.addVariable(filePath, varName, prop);
-              currentScope.addDeclaration(varName, uniqueId);
-              // Record the destructuring transformation.
-              self.tracker.trackTransformation(uniqueId, filePath, prop, "destructuring", { original: "unknown" });
-            }
-          });
-        }
-        this.traverse(path);
-      },
-      // Record identifier usages.
-      visitIdentifier(path) {
-        const node = path.node;
-        // Skip if the identifier is part of its own declaration.
-        if (
-          path.parentPath.node.type === "VariableDeclarator" &&
-          path.parentPath.node.id === node
-        ) {
-          return false;
-        }
-        // Look up the variable in the current scope.
-        const uniqueId = currentScope.lookup(node.name);
-        if (uniqueId) {
-          self.tracker.trackUsage(uniqueId, filePath, node, "reference");
-        }
-        this.traverse(path);
-      },
-      // Record export events for named exports.
-      visitExportNamedDeclaration(path) {
-        const node = path.node;
-        if (node.declaration) {
-          // Let the declaration be processed normally.
-          this.traverse(path);
-        } else if (node.specifiers) {
-          node.specifiers.forEach((specifier) => {
-            if (n.ExportSpecifier.check(specifier)) {
-              const localName = Identifier.checkIdentifierName(specifier.local.name);
-              const uniqueId = currentScope.lookup(localName);
-              if (uniqueId) {
-                const exportedName = Identifier.checkIdentifierName(specifier.exported.name);
-                self.tracker.trackExport(uniqueId, filePath, node, "exportNamed", exportedName);
-              }
-            }
-          });
-        }
-        return false;
-      },
-      // Record import events (proper tracking).
-      visitImportDeclaration(path) {
-        const node = path.node;
-        node.specifiers.forEach((specifier) => {
-          if (
-            n.ImportSpecifier.check(specifier) ||
-            n.ImportDefaultSpecifier.check(specifier) ||
-            n.ImportNamespaceSpecifier.check(specifier)
-          ) {
-            const localName = Identifier.checkIdentifierName(specifier.local.name);
-            const uniqueId = self.tracker.addVariable(filePath, localName, node);
-            self.tracker.trackImport(uniqueId, filePath, node, "import", localName);
+    // Track Variable Declarations
+    root.find(j.VariableDeclarator).forEach((p) => {
+      if (n.Identifier.check(p.node.id)) {
+        const varName = p.node.id.name;
+        const uniqueId = this.tracker.addVariable(filePath, varName, p.node);
+        currentScope.addDeclaration(varName, uniqueId);
+      } else if (n.ObjectPattern.check(p.node.id)) {
+        p.node.id.properties.forEach((prop) => {
+          if (n.Property.check(prop) && n.Identifier.check(prop.value)) {
+            const varName = prop.value.name;
+            const uniqueId = this.tracker.addVariable(filePath, varName, prop);
+            currentScope.addDeclaration(varName, uniqueId);
+            this.tracker.trackTransformation(uniqueId, filePath, prop, "destructuring", { original: "unknown" });
           }
         });
-        return false;
       }
-    } as Visitor);
+    });
+
+    // 🔥 **Fix: Track Variable Usages**
+    root.find(j.Identifier).forEach((p) => {
+      const varName = p.node.name;
+      const scopeId = currentScope.lookup(varName);
+
+      if (scopeId) {
+        this.tracker.trackUsage(scopeId, filePath, p.node, "usage", { context: "expression" });
+      }
+    });
+
+    // Detect Unused Imports
+    const unusedImports: string[] = [];
+    importTracker.forEach((uniqueId, modName) => {
+      const context = this.tracker.queryVariable(uniqueId);
+      if (context && context.usages.length === 0) {
+        unusedImports.push(modName);
+      }
+    });
+
+    return { localDeps: Array.from(localDeps), unusedImports };
   }
 
-  /**
-   * Analyze an entire project directory.
-   * @param {string} projectDir - The project directory.
-   */
-  async analyzeProject(projectDir: string): Promise<void> {
-    const pattern = path.join(projectDir, "**/*.{js,ts,jsx,tsx}");
-    const files = await fastGlob(pattern);
+  async analyzeEntrypoints(entrypoints: string[]): Promise<void> {
+    const visited: Set<string> = new Set();
+    const self = this;
 
-    await Promise.all(
-      files.map(async (file) => {
-        console.log(`Analyzing ${file}...`);
-        this.analyzeFile(file);
-      })
-    );
+    async function analyzeFileRecursive(filePath: string): Promise<void> {
+      const resolvedPath = nodePath.resolve(filePath);
+      if (visited.has(resolvedPath)) return;
+      visited.add(resolvedPath);
 
-    const outputPath = path.join(projectDir, "dependencyGraph.json");
+      console.log(`Analyzing ${resolvedPath}...`);
+      const { localDeps } = await self.analyzeFile(resolvedPath);
+      await Promise.all(localDeps.map(analyzeFileRecursive));
+    }
+
+    await Promise.all(entrypoints.map(analyzeFileRecursive));
+    const outputPath = nodePath.join(process.cwd(), "dependencyGraph.json");
     await this.tracker.saveGraphToFile(outputPath);
     console.log(`Dependency graph saved to ${outputPath}`);
   }
