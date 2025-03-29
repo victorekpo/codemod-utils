@@ -13,6 +13,13 @@ export class ContextAnalyzer {
     this.contextMap = new Map<string, any>(); // Initialize the context map
   }
 
+  async analyzeEntrypoints(entryPointPath: string): Promise<void> {
+    const analyzer = new ContextAnalyzer();
+    await analyzer.analyzeFile(entryPointPath, this.contextMap);
+    this.getGraph();
+    await this.saveGraphToFile("dependencyGraph.json");
+  }
+
   /**
    * Analyzes the file recursively and updates the context map.
    * @param filePath - The file to analyze.
@@ -245,25 +252,28 @@ export class ContextAnalyzer {
     return undefined;
   }
 
-  async analyzeEntrypoints(entryPointPath: string): Promise<void> {
-    const analyzer = new ContextAnalyzer();
-    await analyzer.analyzeFile(entryPointPath, this.contextMap);
-    const contextObject = Object.fromEntries(this.contextMap);
-    const contextJson = JSON.stringify(contextObject, null, 2);
-    console.log("Final context map:", contextJson);
+  /**
+   * Save the dependency graph to a JSON file.
+   */
+  async saveGraphToFile(filePath: string): Promise<void> {
+    await fs.writeFile(filePath, JSON.stringify(this.contextMap, null, 2), "utf-8");
+    console.log("Saved context map to:", filePath);
+  }
+
+  /**
+   * Load the dependency graph from a JSON file.
+   */
+  async loadGraphFromFile(filePath: string): Promise<void> {
+    const data = await fs.readFile(filePath, "utf-8");
+    this.contextMap = JSON.parse(data);
+    console.log("Loaded context map:", this.contextMap);
   }
 
   getGraph(): any {
-    return this.contextMap;
-  }
-
-  private extractFullStatement(node: any): string {
-    let current = node;
-    console.log("NODE", node);
-    while (current && current.parent && !this.isTopLevelStatement(current.parent)) {
-      current = current.parent;
-    }
-    return this.j(current).toSource();
+    const contextObject = Object.fromEntries(this.contextMap);
+    const contextJson = JSON.stringify(contextObject, null, 2);
+    console.log("Context map:", contextJson);
+    return contextJson;
   }
 
   private isTopLevelStatement(node: any): boolean {
@@ -271,5 +281,13 @@ export class ContextAnalyzer {
       "VariableDeclaration", "ExpressionStatement", "ReturnStatement",
       "IfStatement", "WhileStatement", "ForStatement"
     ].includes(node.type);
+  }
+
+  private extractFullStatement(node: any): string {
+    let current = node;
+    while (current && current.parent && !this.isTopLevelStatement(current.parent)) {
+      current = current.parent;
+    }
+    return this.j(current).toSource();
   }
 }
