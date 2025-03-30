@@ -51,8 +51,8 @@ export class ContextAnalyzer {
         }).filter(Boolean) as string[];
 
         importedSpecifiers.forEach((importedVarName) => {
-          const uniqueId = this.addVariable(filePath, importedVarName, p.node, contextMap);
-          this.trackImport(uniqueId, filePath, p.node, "import", importedVarName, moduleName, resolvedPath, contextMap);
+          const uniqueId = this.addVariable(filePath, importedVarName, p.node, lines, contextMap);
+          this.trackImport(uniqueId, filePath, p.node, "import", importedVarName, moduleName, resolvedPath, lines, contextMap);
         });
       }
     });
@@ -61,7 +61,7 @@ export class ContextAnalyzer {
     root.find(this.j.VariableDeclarator).forEach((p) => {
       if (n.Identifier.check(p.node.id)) {
         const varName = p.node.id.name;
-        const uniqueId = this.addVariable(filePath, varName, p.node, contextMap);
+        const uniqueId = this.addVariable(filePath, varName, p.node, lines, contextMap);
         this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "declaration" }, lines, contextMap);
       }
     });
@@ -111,16 +111,16 @@ export class ContextAnalyzer {
 
         // If exportName is found, track the export
         if (exportName) {
-          const uniqueId = this.addVariable(filePath, exportName, p.node, contextMap);
-          this.trackExport(uniqueId, filePath, p.node, "exportNamed", exportName, contextMap);
+          const uniqueId = this.addVariable(filePath, exportName, p.node, lines, contextMap);
+          this.trackExport(uniqueId, filePath, p.node, "exportNamed", exportName, lines, contextMap);
         }
       }
     });
 
 
     root.find(this.j.ExportDefaultDeclaration).forEach((p) => {
-      const uniqueId = this.addVariable(filePath, "default", p.node, contextMap);
-      this.trackExport(uniqueId, filePath, p.node, "exportDefault", "default", contextMap);
+      const uniqueId = this.addVariable(filePath, "default", p.node, lines, contextMap);
+      this.trackExport(uniqueId, filePath, p.node, "exportDefault", "default", lines, contextMap);
     });
 
     // Recursively analyze imported files
@@ -145,16 +145,19 @@ export class ContextAnalyzer {
    * @param filePath - The file path.
    * @param varName - The variable name.
    * @param node - The AST node for the variable.
+   * @param lines - Additional details about the usage.
    * @param contextMap - The map storing all variable contexts.
    * @returns A unique ID for the variable.
    */
-  addVariable(filePath: string, varName: string, node: any, contextMap: Map<string, any>): string {
+  addVariable(filePath: string, varName: string, node: any, lines: string[], contextMap: Map<string, any>): string {
     const uniqueId = uuidv4();
+    const lineText = lines[node.loc.start.line - 1].trim();
+
     if (!contextMap.has(uniqueId)) {
       contextMap.set(uniqueId, {
         file: filePath,
         varName,
-        originalDefinition: this.j(node).toSource(),
+        originalDefinition: lineText,
         position: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
         usages: [],
         exports: [],
@@ -174,13 +177,16 @@ export class ContextAnalyzer {
    * @param importedAs - The module being imported.
    * @param importedFrom - The original module string from the import statement.
    * @param importedFromFile - The original module file string from the import statement.
+   * @param lines - Additional details about the usage.
    * @param contextMap - The map storing all variable contexts.
    */
-  trackImport(uniqueId: string, file: string, node: any, importType: string, importedAs: string, importedFrom: string, importedFromFile: string, contextMap: Map<string, any>): void {
+  trackImport(uniqueId: string, file: string, node: any, importType: string, importedAs: string, importedFrom: string, importedFromFile: string, lines: string[], contextMap: Map<string, any>): void {
     const context = contextMap.get(uniqueId);
+    const lineText = lines[node.loc.start.line - 1].trim();
+
     if (context) {
       context.imports.push({
-        code: this.j(node).toSource(),
+        code: lineText,
         file,
         position: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
         importType,
@@ -221,6 +227,12 @@ export class ContextAnalyzer {
       return;
     }
 
+    // Skip duplicate usages
+    if (context.usages.find(({ fullLine }) => fullLine === lineText)) {
+      console.log(`[DEBUG] Skipping duplicate usage found in map: ${lineText} in ${file}`);
+      return;
+    }
+
     context.usages.push({
       code: node.name,
       fullLine: lineText,
@@ -239,13 +251,16 @@ export class ContextAnalyzer {
    * @param node - The AST node for the export.
    * @param exportType - The type of the export (e.g., "exportNamed").
    * @param exportedAs - The exported name.
+   * @param lines - Additional details about the usage.
    * @param contextMap - The map storing all variable contexts.
    */
-  trackExport(uniqueId: string, file: string, node: any, exportType: string, exportedAs: string, contextMap: Map<string, any>): void {
+  trackExport(uniqueId: string, file: string, node: any, exportType: string, exportedAs: string, lines: string[], contextMap: Map<string, any>): void {
     const context = contextMap.get(uniqueId);
+    const lineText = lines[node.loc.start.line - 1].trim();
+
     if (context) {
       context.exports.push({
-        code: this.j(node).toSource(),
+        code: lineText,
         file,
         position: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
         exportType,
@@ -342,9 +357,31 @@ export class ContextAnalyzer {
 
   private extractFullStatement(node: any): string {
     let current = node;
-    while (current && current.parent && !this.isTopLevelStatement(current.parent)) {
+
+    // If node is inside a VariableDeclarator, keep going up to find the full VariableDeclaration
+    while (current && current.parent) {
+      if (current.parent.type === "VariableDeclarator") {
+        current = current.parent; // Move up to the VariableDeclarator
+      }
+      if (current.parent.type === "VariableDeclaration") {
+        return this.j(current.parent).toSource(); // Return full declaration: const/let/var
+      }
+
+      // Exit if we hit a top-level statement (e.g., a function or class body)
+      if (this.isTopLevelStatement(current.parent)) {
+        break;
+      }
+
+      // Otherwise, keep moving up the tree
       current = current.parent;
     }
-    return this.j(current).toSource();
+
+    return this.j(current).toSource(); // Fallback if no declaration found
   }
+
+
+  private isVariableDeclaration(node: any): boolean {
+    return node.type === "VariableDeclaration";
+  }
+
 }
