@@ -262,7 +262,6 @@ export class ContextAnalyzer {
           if (imp.importedFromFile === file) {
             //
             if (imp.importedAs === exportedAs) {
-              console.log("import context:", importContext);
               context.usages.push({
                 code: `import { ${exportedAs} } from '${file}';`,
                 fullLine: `import { ${exportedAs} } from '${file}';`,

@@ -11,20 +11,21 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
   let actualGraph: any;
   let groupedGraph: Record<string, any>;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    // Mock the fs.readFile function to return the contents of the mock files
     fs.readFile = jest.fn(async (filePath: string) => {
       const normalizedPath = path.resolve(filePath);
       if (mockFiles[normalizedPath]) return mockFiles[normalizedPath];
       throw new Error(`File not found: ${filePath}`);
     }) as any;
-  });
 
-  beforeEach(async () => {
+    // Create a new instance of the analyzer
     analyzer = new ContextAnalyzer();
     await analyzer.analyzeEntrypoints("/test/main.js");
     actualGraph = analyzer.getGraph();
-    console.log("ORIG", JSON.stringify(Object.fromEntries(analyzer.contextMap.entries()), null, 2));
+    const contextJson = Object.fromEntries(analyzer.contextMap.entries());
     groupedGraph = groupGraphByFile(actualGraph);
+    //  console.log("Original context map:", JSON.stringify(contextJson, null, 2));
     console.log("Grouped context map:", JSON.stringify(groupedGraph, null, 2));
   });
 
@@ -35,7 +36,7 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
 
   test("tracks import from 'main.js' correctly", () => {
     const mainJs = groupedGraph["/test/main.js"];
-    const importEntry = mainJs.imports["helper"]; // Should be imported as 'helper'
+    const importEntry = mainJs.imports["helper"];
     expect(importEntry).toBeDefined();
     expect(importEntry.imports.find(({ importType }) => !!importType).importType).toBe("import");
     expect(importEntry.imports.find(({ importedFrom }) => !!importedFrom).importedFrom).toBe("./helper.js");
@@ -91,11 +92,9 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
 
     const usage1 = exportEntry.usages.find((u: any) => u.fullLine === "import { helper } from '/test/helper.js';");
     expect(usage1).toBeDefined();
-    expect(usage1.fullLine).toBe("import { helper } from '/test/helper.js';");
 
     // We expect one of the usages of helper is in main.js in the call to helper()
     const usage2 = exportEntry.usages.find((u: any) => u.fullLine === "const result = helper();");
     expect(usage2).toBeDefined();
-    expect(usage2.fullLine).toBe("const result = helper();");
   });
 });
