@@ -201,23 +201,36 @@ export class ContextAnalyzer {
    * @param lines - Additional details about the usage.
    * @param contextMap - The map storing all variable contexts.
    */
-  trackUsage(uniqueId: string, file: string, node: any, type: string, details: Record<string, unknown>, lines: string[], contextMap: Map<string, any>): void {
-    const context = contextMap.get(uniqueId);
-    if (context) {
-      // const fullStatement = this.extractFullStatement(node);
-      const position = node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null;
-      const fullLine = position ? lines[position.line - 1].trim() : null; // Get the full line
+  trackUsage(
+    uniqueId: string,
+    file: string,
+    node: any,
+    type: string,
+    details: Record<string, any>,
+    lines: string[],
+    contextMap: Map<string, any>
+  ): void {
+    if (!contextMap.has(uniqueId)) return;
 
-      context.usages.push({
-        code: this.j(node).toSource(),
-        fullLine,
-        file,
-        position, //: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
-        type,
-        details,
-      });
+    const context = contextMap.get(uniqueId);
+    const lineText = lines[node.loc.start.line - 1].trim();
+
+    // Skip if fullLine is the same as originalDefinition
+    if (context.originalDefinition === lineText) {
+      console.log(`[DEBUG] Skipping duplicate usage: ${lineText} in ${file}`);
+      return;
     }
+
+    context.usages.push({
+      code: node.name,
+      fullLine: lineText,
+      file,
+      position: { line: node.loc.start.line, column: node.loc.start.column },
+      type,
+      details,
+    });
   }
+
 
   /**
    * Tracks an export event for a variable.
@@ -238,6 +251,44 @@ export class ContextAnalyzer {
         exportType,
         exportedAs,
       });
+
+      // Now, check the contextMap for any imports that use this file
+      for (const [importId, importContext] of contextMap) {
+        // Skip the current file's import context
+        if (importId === uniqueId) continue;
+
+        importContext.imports.forEach((imp) => {
+          // Check if the import references the current file (exporting file)
+          if (imp.importedFromFile === file) {
+            //
+            if (imp.importedAs === exportedAs) {
+              console.log("import context:", importContext);
+              context.usages.push({
+                code: `import { ${exportedAs} } from '${file}';`,
+                fullLine: `import { ${exportedAs} } from '${file}';`,
+                file: imp.file,
+                position: imp.position,
+                type: "usage",
+                details: { context: "expression" },
+              });
+
+              // Add other usages from the found context
+              for (const usage of importContext.usages) {
+                if (usage.file !== file) {
+                  context.usages.push({
+                    code: usage.code,
+                    fullLine: usage.fullLine,
+                    file: usage.file,
+                    position: usage.position,
+                    type: usage.type,
+                    details: usage.details,
+                  });
+                }
+              }
+            }
+          }
+        });
+      }
     }
   }
 

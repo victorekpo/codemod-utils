@@ -23,6 +23,7 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
     analyzer = new ContextAnalyzer();
     await analyzer.analyzeEntrypoints("/test/main.js");
     actualGraph = analyzer.getGraph();
+    console.log("ORIG", JSON.stringify(Object.fromEntries(analyzer.contextMap.entries()), null, 2));
     groupedGraph = groupGraphByFile(actualGraph);
     console.log("Grouped context map:", JSON.stringify(groupedGraph, null, 2));
   });
@@ -84,13 +85,17 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
     expect(exportEntry.originalDefinition).toBe('export function helper() {\n  return "Hello, World!";\n}');
   });
 
-  test.skip("tracks 'helper' function usage in 'main.js'", () => {
+  test("tracks 'helper' function usage in 'main.js'", () => {
     const helperJs = groupedGraph["/test/helper.js"];
     const exportEntry = helperJs.exports["helper"];
+
+    const usage1 = exportEntry.usages.find((u: any) => u.fullLine === "import { helper } from '/test/helper.js';");
+    expect(usage1).toBeDefined();
+    expect(usage1.fullLine).toBe("import { helper } from '/test/helper.js';");
+
     // We expect one of the usages of helper is in main.js in the call to helper()
-    // console.log("EXPORT ENTRY", exportEntry);
-    const usage = exportEntry.usages.find((u: any) => u.fullLine === "helper();");
-    expect(usage).toBeDefined();
-    expect(usage.fullLine).toBe("const result = helper();");
+    const usage2 = exportEntry.usages.find((u: any) => u.fullLine === "const result = helper();");
+    expect(usage2).toBeDefined();
+    expect(usage2.fullLine).toBe("const result = helper();");
   });
 });
