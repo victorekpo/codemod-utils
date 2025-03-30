@@ -13,11 +13,15 @@ export class ContextAnalyzer {
     this.contextMap = new Map<string, any>(); // Initialize the context map
   }
 
-  async analyzeEntrypoints(entryPointPath: string): Promise<void> {
+  async analyzeEntrypoints(entryPointPath: string, doLog = false, doSave = false): Promise<void> {
     const analyzer = new ContextAnalyzer();
     await analyzer.analyzeFile(entryPointPath, this.contextMap);
-    this.getGraph();
-    await this.saveGraphToFile("dependencyGraph.json");
+    if (doLog) {
+      analyzer.logGraph();
+    }
+    if (doSave) {
+      await this.saveGraphToFile("dependencyGraph.json");
+    }
   }
 
   /**
@@ -270,10 +274,13 @@ export class ContextAnalyzer {
   }
 
   getGraph(): any {
+    return Object.fromEntries(this.contextMap);
+  }
+
+  logGraph(): void {
     const contextObject = Object.fromEntries(this.contextMap);
     const contextJson = JSON.stringify(contextObject, null, 2);
     console.log("Context map:", contextJson);
-    return contextJson;
   }
 
   private isTopLevelStatement(node: any): boolean {
