@@ -6,7 +6,7 @@ export default {
   testEnvironment: "node", // Node.js test environment
   extensionsToTreatAsEsm: [".ts"], // Treat .ts and .mjs files as ESM
   transform: {
-    "^.+\\.tsx?$": ["ts-jest", { useESM: true }], // Transform .ts and .tsx files using ts-jest with ESM
+    "^.+\\.tsx?$": ["ts-jest", {useESM: true}], // Transform .ts and .tsx files using ts-jest with ESM
   },
   transformIgnorePatterns: [
     '/node_modules/(?!got/.*)', // Ensure `got` is transformed correctly
@@ -14,4 +14,5 @@ export default {
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1", // Handle .js extensions correctly
   },
+  setupFiles: ["<rootDir>/jest.setup.mjs"]
 };
