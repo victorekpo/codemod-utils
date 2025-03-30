@@ -36,7 +36,6 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
     const mainJs = groupedGraph["/test/main.js"];
     const importEntry = mainJs.imports["helper"]; // Should be imported as 'helper'
     expect(importEntry).toBeDefined();
-    console.log("IMPORT ENTRY:", importEntry);
     expect(importEntry.imports.find(({ importType }) => !!importType).importType).toBe("import");
     expect(importEntry.imports.find(({ importedFrom }) => !!importedFrom).importedFrom).toBe("./helper.js");
     expect(importEntry.imports.find(({ importedFromFile }) => !!importedFromFile).importedFromFile).toBe("/test/helper.js");
@@ -53,7 +52,6 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
     const mainJs = groupedGraph["/test/main.js"];
     const resultVar = mainJs.variables["result"];
     // Assert that one of the usages is the console.log line
-    console.log("RESULT VAR", resultVar);
     const usage = resultVar.usages.find((u: any) => u.fullLine === "console.log(result);");
     expect(usage).toBeDefined();
     expect(usage.fullLine).toBe("console.log(result);");
@@ -90,7 +88,7 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
     const helperJs = groupedGraph["/test/helper.js"];
     const exportEntry = helperJs.exports["helper"];
     // We expect one of the usages of helper is in main.js in the call to helper()
-    console.log("EXPORT ENTRY", exportEntry);
+    // console.log("EXPORT ENTRY", exportEntry);
     const usage = exportEntry.usages.find((u: any) => u.fullLine === "helper();");
     expect(usage).toBeDefined();
     expect(usage.fullLine).toBe("const result = helper();");
