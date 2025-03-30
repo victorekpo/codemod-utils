@@ -1,76 +1,101 @@
 import { ContextAnalyzer } from "./ContextAnalyzer";
 import fs from "fs/promises";
 import path from "node:path";
+import { groupGraphByFile } from "../testUtils/graphUtils";
+import { mockFiles } from "../testUtils/mockFiles";
 
 jest.mock("fs/promises");
 
-const mockFiles: Record<string, string> = {
-  "/test/main.js": `
-    import { helper } from './helper.js';
-    const result = helper();
-    const test = "Victor";
-    console.log(result);
-  `,
-  "/test/helper.js": `
-    export function helper() {
-      return "Hello, World!";
-    }
-  `,
-};
-
-// Mock the readFile function to return the mock files
-fs.readFile = jest.fn(async (filePath: string) => {
-  const normalizedPath = path.resolve(filePath);
-  if (mockFiles[normalizedPath]) return mockFiles[normalizedPath];
-  throw new Error(`File not found: ${filePath}`);
-}) as any;
-
-// Expected graph tracking how `helper` flows into `result` and is logged
-const expectedGraph = {
-  "/test/main.js": {
-    imports: {
-      "./helper.js": { type: "import", specifiers: ["helper"] },
-    },
-    variables: {
-      result: {
-        file: "/test/main.js",
-        originalDefinition: "const result = helper();",
-        usages: [
-          { file: "/test/main.js", type: "usage", code: "console.log(result);" },
-        ],
-        transformations: [],
-      },
-    },
-  },
-  "/test/helper.js": {
-    exports: {
-      helper: {
-        file: "/test/helper.js",
-        originalDefinition: "export function helper() { return \"Hello, World!\"; }",
-        usages: [
-          { file: "/test/main.js", type: "usage", code: "helper();" },
-        ],
-        transformations: [],
-      },
-    },
-  },
-};
-
 describe("ContextAnalyzer - Single Entrypoint", () => {
   let analyzer: ContextAnalyzer;
+  let actualGraph: any;
+  let groupedGraph: Record<string, any>;
 
-  beforeEach(() => {
-    analyzer = new ContextAnalyzer();
+  beforeAll(() => {
+    fs.readFile = jest.fn(async (filePath: string) => {
+      const normalizedPath = path.resolve(filePath);
+      if (mockFiles[normalizedPath]) return mockFiles[normalizedPath];
+      throw new Error(`File not found: ${filePath}`);
+    }) as any;
   });
 
-  test("tracks variables and imports/exports across multiple files", async () => {
-    // Pass the entry point file to the analyzer, which will also analyze imported files
+  beforeEach(async () => {
+    analyzer = new ContextAnalyzer();
     await analyzer.analyzeEntrypoints("/test/main.js");
+    actualGraph = analyzer.getGraph();
+    console.log("ORIG", JSON.stringify(Object.fromEntries(analyzer.contextMap.entries()), null, 2));
+    groupedGraph = groupGraphByFile(actualGraph);
+    console.log("Grouped context map:", JSON.stringify(groupedGraph, null, 2));
+  });
 
-    // Retrieve the actual graph from the analyzer's tracker
-    const actualGraph = analyzer.getGraph();
+  test("includes '/test/main.js' in the graph", () => {
+    const mainJs = groupedGraph["/test/main.js"];
+    expect(mainJs).toBeDefined();
+  });
 
-    // Assert that the actual graph matches the expected graph structure
-    // expect(actualGraph).toEqual(expectedGraph);
+  test("tracks import from 'main.js' correctly", () => {
+    const mainJs = groupedGraph["/test/main.js"];
+    const importEntry = mainJs.imports["helper"]; // Should be imported as 'helper'
+    expect(importEntry).toBeDefined();
+    expect(importEntry.imports.find(({ importType }) => !!importType).importType).toBe("import");
+    expect(importEntry.imports.find(({ importedFrom }) => !!importedFrom).importedFrom).toBe("./helper.js");
+    expect(importEntry.imports.find(({ importedFromFile }) => !!importedFromFile).importedFromFile).toBe("/test/helper.js");
+  });
+
+  test("tracks 'result' variable declaration in 'main.js'", () => {
+    const mainJs = groupedGraph["/test/main.js"];
+    const resultVar = mainJs.variables["result"];
+    expect(resultVar).toBeDefined();
+    expect(resultVar.originalDefinition).toBe("result = helper()");
+  });
+
+  test("tracks 'result' variable usage in 'main.js'", () => {
+    const mainJs = groupedGraph["/test/main.js"];
+    const resultVar = mainJs.variables["result"];
+    // Assert that one of the usages is the console.log line
+    const usage = resultVar.usages.find((u: any) => u.fullLine === "console.log(result);");
+    expect(usage).toBeDefined();
+    expect(usage.fullLine).toBe("console.log(result);");
+  });
+
+  test("tracks 'test' variable declaration in 'main.js'", () => {
+    const mainJs = groupedGraph["/test/main.js"];
+    const testVar = mainJs.variables["test"];
+    expect(testVar).toBeDefined();
+    expect(testVar.originalDefinition).toBe('test = "Victor"');
+  });
+
+  test("tracks 'test' variable usage in 'main.js'", () => {
+    const mainJs = groupedGraph["/test/main.js"];
+    const testVar = mainJs.variables["test"];
+    const usage = testVar.usages.find((u: any) => u.code === "test");
+    expect(usage).toBeDefined();
+    expect(usage.fullLine).toBe('const test = "Victor";');
+  });
+
+  test("includes '/test/helper.js' in the graph", () => {
+    const helperJs = groupedGraph["/test/helper.js"];
+    expect(helperJs).toBeDefined();
+  });
+
+  test("tracks named export 'helper' correctly in 'helper.js'", () => {
+    const helperJs = groupedGraph["/test/helper.js"];
+    const exportEntry = helperJs.exports["helper"];
+    expect(exportEntry).toBeDefined();
+    expect(exportEntry.originalDefinition).toBe('export function helper() {\n  return "Hello, World!";\n}');
+  });
+
+  test("tracks 'helper' function usage in 'main.js'", () => {
+    const helperJs = groupedGraph["/test/helper.js"];
+    const exportEntry = helperJs.exports["helper"];
+
+    const usage1 = exportEntry.usages.find((u: any) => u.fullLine === "import { helper } from '/test/helper.js';");
+    expect(usage1).toBeDefined();
+    expect(usage1.fullLine).toBe("import { helper } from '/test/helper.js';");
+
+    // We expect one of the usages of helper is in main.js in the call to helper()
+    const usage2 = exportEntry.usages.find((u: any) => u.fullLine === "const result = helper();");
+    expect(usage2).toBeDefined();
+    expect(usage2.fullLine).toBe("const result = helper();");
   });
 });
