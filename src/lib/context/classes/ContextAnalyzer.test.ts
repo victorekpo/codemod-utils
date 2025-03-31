@@ -89,7 +89,7 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
     const helperJs = groupedGraph["/test/helper.js"];
     const exportEntry = helperJs.exports["helper"];
 
-    const usage1 = exportEntry.usages.find((u: any) => u.fullLine === "import { helper } from '/test/helper.js';");
+    const usage1 = exportEntry.usages.find((u: any) => u.fullLine === "import { helper } from './helper.js';");
     expect(usage1).toBeDefined();
 
     // We expect one of the usages of helper is in main.js in the call to helper()

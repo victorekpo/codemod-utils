@@ -85,8 +85,8 @@ export const expectedGroupedGraph = {
         },
         usages: [
           {
-            code: "import { helper } from '/test/helper.js';",
-            fullLine: "import { helper } from '/test/helper.js';",
+            code: "helper",
+            fullLine: "import { helper } from './helper.js';",
             file: "/test/main.js",
             position: {
               line: 2,

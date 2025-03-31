@@ -208,7 +208,8 @@ export class ContextAnalyzer {
 
     if (context) {
       context.imports.push({
-        code: lineText,
+        code: importedAs,
+        fullLine: lineText,
         file,
         position: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
         importType,
@@ -300,8 +301,8 @@ export class ContextAnalyzer {
             //
             if (imp.importedAs === exportedAs) {
               context.usages.push({
-                code: `import { ${exportedAs} } from '${file}';`,
-                fullLine: `import { ${exportedAs} } from '${file}';`,
+                code: imp.code,
+                fullLine: imp.fullLine,
                 file: imp.file,
                 position: imp.position,
                 type: "usage",
