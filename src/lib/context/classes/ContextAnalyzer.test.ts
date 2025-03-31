@@ -99,6 +99,6 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
 
   test("dependency graph matches expected structure", () => {
     const normalizedObject = JSON.parse(JSON.stringify(groupedGraph));
-    expect(normalizedObject).toMatchObject(expectedGroupedGraph);
+    expect(normalizedObject).toStrictEqual(expectedGroupedGraph);
   });
 });

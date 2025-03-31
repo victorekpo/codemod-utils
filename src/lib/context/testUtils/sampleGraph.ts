@@ -63,7 +63,7 @@ export const expectedGroupedGraph = {
           }
         ],
         importType: "import",
-        importedAs: "helper",
+        importName: "helper",
         importedFrom: "./helper.js",
         importedFromFile: "/test/helper.js",
         transformations: []
@@ -113,6 +113,7 @@ export const expectedGroupedGraph = {
         ],
         exportType: "exportNamed",
         exportedAs: "helper",
+        exportedFromFile: "/test/helper.js",
         transformations: []
       }
     }

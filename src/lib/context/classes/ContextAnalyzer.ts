@@ -48,18 +48,40 @@ export class ContextAnalyzer {
 
         // Extract the imported variable name instead of using moduleName
         const importedSpecifiers = p.node.specifiers?.map((specifier) => {
-          if (n.ImportSpecifier.check(specifier) || n.ImportDefaultSpecifier.check(specifier)) {
-            return specifier.local.name;
+          if (n.ImportSpecifier.check(specifier)) {
+            // Handle named imports with alias (e.g., import { myProfile as profile } from 'module')
+            const importedVarName = specifier.local.name;
+            const exportedVarName = specifier.imported?.name; // Name of the imported symbol
+
+            if (exportedVarName && importedVarName) {
+              // Aliased import
+              return { local: importedVarName, exported: exportedVarName };
+            } else {
+              // Regular import
+              return importedVarName;
+            }
+          } else if (n.ImportDefaultSpecifier.check(specifier)) {
+            // Handle default imports (e.g., import myProfile from 'module')
+            return specifier.local.name; // Default import has no 'imported' field
           }
           return null;
-        }).filter(Boolean) as string[];
+        }).filter(Boolean);
 
+        // Track normal imports
         importedSpecifiers.forEach((importedVarName) => {
-          const uniqueId = this.addVariable(filePath, importedVarName, p.node, lines, contextMap);
-          this.trackImport(uniqueId, filePath, p.node, "import", importedVarName, moduleName, resolvedPath, lines, contextMap);
+          if (typeof importedVarName === "string") {
+            const uniqueId = this.addVariable(filePath, importedVarName, p.node, lines, contextMap);
+            this.trackImport(uniqueId, filePath, p.node, "import", importedVarName, importedVarName, moduleName, resolvedPath, lines, contextMap);
+          } else if (typeof importedVarName === "object") {
+            // Handle aliased imports
+            const { local, exported } = importedVarName;
+            const uniqueId = this.addVariable(filePath, exported, p.node, lines, contextMap);
+            this.trackImport(uniqueId, filePath, p.node, "import", exported, local, moduleName, resolvedPath, lines, contextMap);
+          }
         });
       }
     });
+
 
     // Track Variable Declarations and Usages
     root.find(this.j.VariableDeclarator).forEach((p) => {
@@ -129,20 +151,20 @@ export class ContextAnalyzer {
       // Track all regular named exports
       exportNames.forEach((exportName) => {
         const uniqueId = this.addVariable(filePath, exportName, p.node, lines, contextMap);
-        this.trackExport(uniqueId, filePath, p.node, "exportNamed", exportName, lines, contextMap);
+        this.trackExport(uniqueId, filePath, p.node, "exportNamed", exportName, filePath, lines, contextMap);
       });
 
       // Track aliased exports separately
       aliasedExports.forEach(({ local, exported }) => {
         const uniqueId = this.addVariable(filePath, exported, p.node, lines, contextMap);
-        this.trackExport(uniqueId, filePath, p.node, "exportNamedAlias", `${local} as ${exported}`, lines, contextMap);
+        this.trackExport(uniqueId, filePath, p.node, "exportNamedAlias", `${local} as ${exported}`, filePath, lines, contextMap);
       });
     });
 
 
     root.find(this.j.ExportDefaultDeclaration).forEach((p) => {
       const uniqueId = this.addVariable(filePath, "default", p.node, lines, contextMap);
-      this.trackExport(uniqueId, filePath, p.node, "exportDefault", "default", lines, contextMap);
+      this.trackExport(uniqueId, filePath, p.node, "exportDefault", "default", filePath, lines, contextMap);
     });
 
     // Recursively analyze imported files
@@ -196,24 +218,26 @@ export class ContextAnalyzer {
    * @param file - The file where the import is used.
    * @param node - The AST node for the import.
    * @param importType - The type of the import (e.g., "import").
-   * @param importedAs - The module being imported.
+   * @param importName - The module being imported.
+   * @param importAlias - The alias for the module being imported.
    * @param importedFrom - The original module string from the import statement.
    * @param importedFromFile - The original module file string from the import statement.
    * @param lines - Additional details about the usage.
    * @param contextMap - The map storing all variable contexts.
    */
-  trackImport(uniqueId: string, file: string, node: any, importType: string, importedAs: string, importedFrom: string, importedFromFile: string, lines: string[], contextMap: Map<string, any>): void {
+  trackImport(uniqueId: string, file: string, node: any, importType: string, importName: string, importAlias: string, importedFrom: string, importedFromFile: string, lines: string[], contextMap: Map<string, any>): void {
     const context = contextMap.get(uniqueId);
     const lineText = lines[node.loc.start.line - 1].trim();
 
     if (context) {
       context.imports.push({
-        code: importedAs,
+        code: importName,
         fullLine: lineText,
         file,
         position: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
         importType,
-        importedAs,
+        importName,
+        ...(importAlias !== importName ? { importAlias } : {}),
         importedFrom,
         importedFromFile
       });
@@ -274,10 +298,11 @@ export class ContextAnalyzer {
    * @param node - The AST node for the export.
    * @param exportType - The type of the export (e.g., "exportNamed").
    * @param exportedAs - The exported name.
+   * @param exportedFromFile - The original module file string from the export statement.
    * @param lines - Additional details about the usage.
    * @param contextMap - The map storing all variable contexts.
    */
-  trackExport(uniqueId: string, file: string, node: any, exportType: string, exportedAs: string, lines: string[], contextMap: Map<string, any>): void {
+  trackExport(uniqueId: string, file: string, node: any, exportType: string, exportedAs: string, exportedFromFile: string, lines: string[], contextMap: Map<string, any>): void {
     const context = contextMap.get(uniqueId);
     const lineText = lines[node.loc.start.line - 1].trim();
 
@@ -288,6 +313,7 @@ export class ContextAnalyzer {
         position: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
         exportType,
         exportedAs,
+        exportedFromFile
       });
 
       // Now, check the contextMap for any imports that use this file
@@ -297,9 +323,9 @@ export class ContextAnalyzer {
 
         importContext.imports.forEach((imp) => {
           // Check if the import references the current file (exporting file)
-          if (imp.importedFromFile === file) {
+          if (imp.importedFromFile === exportedFromFile) {
             //
-            if (imp.importedAs === exportedAs) {
+            if (imp.importName === exportedAs) {
               context.usages.push({
                 code: imp.code,
                 fullLine: imp.fullLine,
@@ -371,6 +397,7 @@ export class ContextAnalyzer {
         // delete unneeded keys
         delete entry.imports[0].file;
         delete entry.imports[0].code;
+        delete entry.imports[0].fullLine;
         delete entry.imports[0].position;
 
         // flatten imports since we can rightfully only have one import per variable in a single file
