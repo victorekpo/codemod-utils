@@ -82,25 +82,6 @@ export class ContextAnalyzer {
       }
     });
 
-
-    // Track Variable Declarations and Usages
-    root.find(this.j.VariableDeclarator).forEach((p) => {
-      if (n.Identifier.check(p.node.id)) {
-        const varName = p.node.id.name;
-        const uniqueId = this.addVariable(filePath, varName, p.node, lines, contextMap);
-        this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "declaration" }, lines, contextMap);
-      }
-    });
-
-    // Track Variable Usages
-    root.find(this.j.Identifier).forEach((p) => {
-      const varName = p.node.name;
-      const uniqueId = this.lookupVariable(filePath, varName, contextMap);
-      if (uniqueId) {
-        this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "expression" }, lines, contextMap);
-      }
-    });
-
     // Track Exports
     root.find(this.j.ExportNamedDeclaration).forEach((p) => {
       const declaration = p.node.declaration;
@@ -166,6 +147,34 @@ export class ContextAnalyzer {
       const uniqueId = this.addVariable(filePath, "default", p.node, lines, contextMap);
       this.trackExport(uniqueId, filePath, p.node, "exportDefault", "default", filePath, lines, contextMap);
     });
+
+    // Track Variable Declarations and Usages
+    root.find(this.j.VariableDeclarator).forEach((p) => {
+      if (n.Identifier.check(p.node.id)) {
+        const varName = p.node.id.name;
+
+        const contextMapArray = Array.from(contextMap.entries());
+        const existingVar = contextMapArray.find(([_, context]) => context.exports.find(x => {
+          return x.exportedAs === varName;
+        }) && context.file === filePath);
+
+        if (!existingVar) {
+          const uniqueId = this.addVariable(filePath, varName, p.node, lines, contextMap);
+          this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "declaration" }, lines, contextMap);
+        }
+      }
+    });
+
+    // Track Variable Usages
+    root.find(this.j.Identifier).forEach((p) => {
+      const varName = p.node.name;
+
+      const uniqueId = this.lookupVariable(filePath, varName, contextMap);
+      if (uniqueId) {
+        this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "expression" }, lines, contextMap);
+      }
+    });
+
 
     // Recursively analyze imported files
     const localDeps: Set<string> = new Set();

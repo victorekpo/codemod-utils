@@ -59,14 +59,14 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
 
   test("tracks 'test' variable declaration in 'main.js'", () => {
     const mainJs = groupedGraph["/test/main.js"];
-    const testVar = mainJs.variables["test"];
+    const testVar = mainJs.exports["test"];
     expect(testVar).toBeDefined();
-    expect(testVar.originalDefinition).toBe('const test = "Victor";');
+    expect(testVar.originalDefinition).toBe('export const test = "Victor";');
   });
 
   test("tracks 'test' variable usage in 'main.js'", () => {
     const mainJs = groupedGraph["/test/main.js"];
-    const testVar = mainJs.variables["test"];
+    const testVar = mainJs.exports["test"];
     const usage = testVar.usages.find((u: any) => u.code === 'const test = "Victor";');
     expect(usage).toBeUndefined(); // no usages found
   });

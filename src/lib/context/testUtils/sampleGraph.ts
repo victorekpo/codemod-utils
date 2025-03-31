@@ -25,17 +25,6 @@ export const expectedGroupedGraph = {
           }
         ],
         transformations: []
-      },
-      test: {
-        file: "/test/main.js",
-        varName: "test",
-        originalDefinition: "const test = \"Victor\";",
-        position: {
-          line: 4,
-          column: 10
-        },
-        usages: [],
-        transformations: []
       }
     },
     imports: {
@@ -69,7 +58,22 @@ export const expectedGroupedGraph = {
         transformations: []
       }
     },
-    exports: {}
+    exports: {
+      test: {
+        file: "/test/main.js",
+        varName: "test",
+        originalDefinition: "export const test = \"Victor\";",
+        position: {
+          line: 4,
+          column: 4
+        },
+        usages: [],
+        transformations: [],
+        exportType: "exportNamed",
+        exportedAs: "test",
+        exportedFromFile: "/test/main.js"
+      }
+    }
   },
   "/test/helper.js": {
     variables: {},
