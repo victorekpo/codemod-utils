@@ -10,15 +10,18 @@ export class ContextAnalyzer {
 
   constructor() {
     this.j = jscodeshift.withParser("babel-ts");
-    this.contextMap = new Map<string, any>(); // Initialize the context map
+    this.contextMap = new Map<string, any>();
   }
 
   async analyzeEntrypoints(entryPointPath: string, doLog = true, doSave = true): Promise<void> {
     const analyzer = new ContextAnalyzer();
-    await analyzer.analyzeFile(entryPointPath, this.contextMap);
+    const map = this.contextMap;
+    await analyzer.analyzeFile(entryPointPath, map);
+
     if (doLog) {
-      analyzer.logGraph();
+      this.logGraph();
     }
+
     if (doSave) {
       await this.saveGraphToFile("dependencyGraph.json");
       await this.saveGroupedGraphToFile("dependencyGraphGrouped.json");

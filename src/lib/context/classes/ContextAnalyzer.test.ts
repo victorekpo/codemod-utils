@@ -21,7 +21,7 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
 
     // Create a new instance of the analyzer
     analyzer = new ContextAnalyzer();
-    await analyzer.analyzeEntrypoints("/test/main.js", false, false);
+    await analyzer.analyzeEntrypoints("/test/main.js", true, false);
     actualGraph = analyzer.convertGraphToObject();
     groupedGraph = analyzer.convertGraphToGroupedGraph();
     console.log("Original context map:", JSON.stringify(actualGraph, null, 2));
