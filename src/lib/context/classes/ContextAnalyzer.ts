@@ -223,13 +223,13 @@ export class ContextAnalyzer {
 
     // Skip if fullLine is the same as originalDefinition
     if (context.originalDefinition === lineText) {
-      console.log(`[DEBUG] Skipping duplicate usage: ${lineText} in ${file}`);
+      // console.log(`[DEBUG] Skipping duplicate usage: ${lineText} in ${file}`);
       return;
     }
 
     // Skip duplicate usages
     if (context.usages.find(({ fullLine }) => fullLine === lineText)) {
-      console.log(`[DEBUG] Skipping duplicate usage found in map: ${lineText} in ${file}`);
+      // console.log(`[DEBUG] Skipping duplicate usage found in map: ${lineText} in ${file}`);
       return;
     }
 
@@ -321,12 +321,30 @@ export class ContextAnalyzer {
     return undefined;
   }
 
+  getGraph(): any {
+    return this.contextMap;
+  }
+
+  convertGraphToObject(): any {
+    return Object.fromEntries(this.contextMap);
+  }
+
+  convertGraphToString(): string {
+    const contextObject = this.convertGraphToObject();
+    return JSON.stringify(contextObject, null, 2);
+  }
+
+  logGraph(): void {
+    const contextJson = this.convertGraphToString();
+    console.log("Context Graph", contextJson);
+  }
+
   /**
    * Save the dependency graph to a JSON file.
    */
   async saveGraphToFile(filePath: string): Promise<void> {
-    await fs.writeFile(filePath, JSON.stringify(this.contextMap, null, 2), "utf-8");
-    console.log("Saved context map to:", filePath);
+    await fs.writeFile(filePath, this.convertGraphToString(), "utf-8");
+    console.log("Saved context graph to:", filePath);
   }
 
   /**
@@ -335,17 +353,7 @@ export class ContextAnalyzer {
   async loadGraphFromFile(filePath: string): Promise<void> {
     const data = await fs.readFile(filePath, "utf-8");
     this.contextMap = JSON.parse(data);
-    console.log("Loaded context map:", this.contextMap);
-  }
-
-  getGraph(): any {
-    return Object.fromEntries(this.contextMap);
-  }
-
-  logGraph(): void {
-    const contextObject = Object.fromEntries(this.contextMap);
-    const contextJson = JSON.stringify(contextObject, null, 2);
-    console.log("Context map:", contextJson);
+    console.log("Loaded context graph:", this.contextMap);
   }
 
   private isTopLevelStatement(node: any): boolean {
@@ -383,5 +391,4 @@ export class ContextAnalyzer {
   private isVariableDeclaration(node: any): boolean {
     return node.type === "VariableDeclaration";
   }
-
 }
