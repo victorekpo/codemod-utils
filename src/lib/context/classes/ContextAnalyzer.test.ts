@@ -36,9 +36,9 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
     const mainJs = groupedGraph["/test/main.js"];
     const importEntry = mainJs.imports["helper"];
     expect(importEntry).toBeDefined();
-    expect(importEntry.imports.find(({ importType }) => !!importType).importType).toBe("import");
-    expect(importEntry.imports.find(({ importedFrom }) => !!importedFrom).importedFrom).toBe("./helper.js");
-    expect(importEntry.imports.find(({ importedFromFile }) => !!importedFromFile).importedFromFile).toBe("/test/helper.js");
+    expect(importEntry.imports.importType).toBe("import");
+    expect(importEntry.imports.importedFrom).toBe("./helper.js");
+    expect(importEntry.imports.importedFromFile).toBe("/test/helper.js");
   });
 
   test("tracks 'result' variable declaration in 'main.js'", () => {
