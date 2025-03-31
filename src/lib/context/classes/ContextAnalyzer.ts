@@ -169,9 +169,16 @@ export class ContextAnalyzer {
     root.find(this.j.Identifier).forEach((p) => {
       const varName = p.node.name;
 
-      const uniqueId = this.lookupVariable(filePath, varName, contextMap);
-      if (uniqueId) {
-        this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "expression" }, lines, contextMap);
+      const contextMapArray = Array.from(contextMap.entries());
+      const existingVar = contextMapArray.find(([_, context]) => context.exports.find(x => {
+        return x.exportedAs === varName;
+      }) && context.file === filePath);
+
+      if (!existingVar) {
+        const uniqueId = this.lookupVariable(filePath, varName, contextMap);
+        if (uniqueId) {
+          this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "expression" }, lines, contextMap);
+        }
       }
     });
 
