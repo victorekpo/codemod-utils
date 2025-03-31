@@ -13,7 +13,7 @@ export class ContextAnalyzer {
     this.contextMap = new Map<string, any>(); // Initialize the context map
   }
 
-  async analyzeEntrypoints(entryPointPath: string, doLog = false, doSave = false): Promise<void> {
+  async analyzeEntrypoints(entryPointPath: string, doLog = true, doSave = true): Promise<void> {
     const analyzer = new ContextAnalyzer();
     await analyzer.analyzeFile(entryPointPath, this.contextMap);
     if (doLog) {
@@ -21,6 +21,7 @@ export class ContextAnalyzer {
     }
     if (doSave) {
       await this.saveGraphToFile("dependencyGraph.json");
+      await this.saveGroupedGraphToFile("dependencyGraphGrouped.json");
     }
   }
 
@@ -321,6 +322,33 @@ export class ContextAnalyzer {
     return undefined;
   }
 
+  /**
+   * Groups the flat context map into a file-keyed structure.
+   * Each file will have keys: variables, imports, exports.
+   */
+  groupGraphByFile(): Record<string, any> {
+    const result: Record<string, any> = {};
+    const graph = this.convertGraphToObject();
+
+    for (const key in graph) {
+      const entry = graph[key];
+      const file = entry.file;
+      if (!result[file]) {
+        result[file] = { variables: {}, imports: {}, exports: {} };
+      }
+      const def = entry.originalDefinition.trim();
+      if (def.startsWith("import")) {
+        // Use the imported specifier as the key
+        result[file].imports[entry.varName] = entry;
+      } else if (def.startsWith("export")) {
+        result[file].exports[entry.varName] = entry;
+      } else {
+        result[file].variables[entry.varName] = entry;
+      }
+    }
+    return result;
+  }
+
   getGraph(): any {
     return this.contextMap;
   }
@@ -330,13 +358,22 @@ export class ContextAnalyzer {
   }
 
   convertGraphToString(): string {
-    const contextObject = this.convertGraphToObject();
-    return JSON.stringify(contextObject, null, 2);
+    const graph = this.convertGraphToObject();
+    return JSON.stringify(graph, null, 2);
+  }
+
+  convertGraphToGroupedGraph(): any {
+    return this.groupGraphByFile();
+  }
+
+  convertGraphToGroupedGraphString(): any {
+    const graph = this.convertGraphToGroupedGraph();
+    return JSON.stringify(graph, null, 2);
   }
 
   logGraph(): void {
-    const contextJson = this.convertGraphToString();
-    console.log("Context Graph", contextJson);
+    const graph = this.convertGraphToString();
+    console.log("Context Graph", graph);
   }
 
   /**
@@ -344,6 +381,11 @@ export class ContextAnalyzer {
    */
   async saveGraphToFile(filePath: string): Promise<void> {
     await fs.writeFile(filePath, this.convertGraphToString(), "utf-8");
+    console.log("Saved context graph to:", filePath);
+  }
+
+  async saveGroupedGraphToFile(filePath: string): Promise<void> {
+    await fs.writeFile(filePath, this.convertGraphToGroupedGraphString(), "utf-8");
     console.log("Saved context graph to:", filePath);
   }
 

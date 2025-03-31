@@ -1,7 +1,6 @@
 import { ContextAnalyzer } from "./ContextAnalyzer";
 import fs from "fs/promises";
 import path from "node:path";
-import { groupGraphByFile } from "../testUtils/graphUtils";
 import { mockFiles } from "../testUtils/mockFiles";
 import { expectedGroupedGraph } from "../testUtils/sampleGraph";
 
@@ -22,9 +21,9 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
 
     // Create a new instance of the analyzer
     analyzer = new ContextAnalyzer();
-    await analyzer.analyzeEntrypoints("/test/main.js");
+    await analyzer.analyzeEntrypoints("/test/main.js", false, false);
     actualGraph = analyzer.convertGraphToObject();
-    groupedGraph = groupGraphByFile(actualGraph);
+    groupedGraph = analyzer.convertGraphToGroupedGraph();
     console.log("Original context map:", JSON.stringify(actualGraph, null, 2));
     console.log("Grouped context map:", JSON.stringify(groupedGraph, null, 2));
   });
