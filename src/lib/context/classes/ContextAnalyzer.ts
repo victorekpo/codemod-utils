@@ -318,57 +318,126 @@ export class ContextAnalyzer {
    * @param lines - Additional details about the usage.
    * @param contextMap - The map storing all variable contexts.
    */
-  trackExport(uniqueId: string, file: string, node: any, exportType: string, exportedAs: string, exportedFromFile: string, lines: string[], contextMap: Map<string, any>): void {
+  trackExport(
+    uniqueId: string,
+    file: string,
+    node: any,
+    exportType: string,
+    exportedAs: string,
+    exportedFromFile: string,
+    lines: string[],
+    contextMap: Map<string, any>
+  ): void {
     const context = contextMap.get(uniqueId);
+    if (!context) return;
+
     const lineText = lines[node.loc.start.line - 1].trim();
+    context.exports.push({
+      code: lineText,
+      file,
+      position: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
+      exportType,
+      exportedAs,
+      exportedFromFile,
+    });
 
-    if (context) {
-      context.exports.push({
-        code: lineText,
-        file,
-        position: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
-        exportType,
-        exportedAs,
-        exportedFromFile
-      });
+    // Now, check the contextMap for any imports that use this file
+    for (const [importId, importContext] of contextMap) {
+      // Skip the current file's import context
+      if (importId === uniqueId) continue;
 
-      // Now, check the contextMap for any imports that use this file
-      for (const [importId, importContext] of contextMap) {
-        // Skip the current file's import context
-        if (importId === uniqueId) continue;
+      importContext.imports.forEach((imp) => {
+        // Check if the import references the current file (exporting file)
+        if (imp.importedFromFile !== exportedFromFile || imp.importName !== exportedAs) return;
 
-        importContext.imports.forEach((imp) => {
-          // Check if the import references the current file (exporting file)
-          if (imp.importedFromFile === exportedFromFile) {
-            //
-            if (imp.importName === exportedAs) {
-              context.usages.push({
-                code: imp.code,
-                fullLine: imp.fullLine,
-                file: imp.file,
-                position: imp.position,
-                type: "usage",
-                details: { context: "expression" },
-              });
-
-              // Add other usages from the found context
-              for (const usage of importContext.usages) {
-                if (usage.file !== file) {
-                  context.usages.push({
-                    code: usage.code,
-                    fullLine: usage.fullLine,
-                    file: usage.file,
-                    position: usage.position,
-                    type: usage.type,
-                    details: usage.details,
-                  });
-                }
-              }
-            }
-          }
+        context.usages.push({
+          code: imp.code,
+          fullLine: imp.fullLine,
+          file: imp.file,
+          position: imp.position,
+          type: "usage",
+          details: { context: "expression" },
         });
-      }
+
+        // Add other usages from the found context
+        for (const usage of importContext.usages) {
+          if (usage.file === file) continue;
+
+          const usageItem = {
+            code: usage.code,
+            fullLine: usage.fullLine,
+            file: usage.file,
+            position: usage.position,
+            type: usage.type,
+            details: usage.details,
+          };
+
+          // Check if the usage code is the final statement and doesn't reference more variables
+          // console.log("Usage Full Line", usage.fullLine);
+
+          // Add nested usages for this initial usage
+          this.addNestedUsages(usageItem, contextMap);
+
+          context.usages.push(usageItem);
+        }
+      });
     }
+  }
+
+  /**
+   * Extracts variables from a code string using jscodeshift.
+   * @param code - The JavaScript/TypeScript code as a string.
+   * @returns An array of unique variable names.
+   */
+  extractVariablesFromCode(code: string): string[] {
+    const root = jscodeshift(code); // Parse the code into an AST
+    const variables = new Set<string>(); // Use a Set to avoid duplicates
+
+    // Find all VariableDeclarators (e.g., const foo = ...)
+    root.find(jscodeshift.VariableDeclarator).forEach((path: any) => {
+      variables.add(path.node.id.name); // Add variable name to the Set
+    });
+
+    return variables.size ? Array.from(variables) : [];
+  }
+
+  /**
+   * Recursively adds nested usages for a given usage item.
+   * @param usageItem - The usage item for which nested usages should be tracked.
+   * @param contextMap - The map storing all variable contexts.
+   */
+  addNestedUsages(usageItem: any, contextMap: Map<string, any>): void {
+    // Use jscodeshift to extract variables from the usage code
+    const nestedVariables = this.extractVariablesFromCode(usageItem.fullLine);
+    if (!nestedVariables.length) return;
+
+    console.log(`Nested variables found: ${nestedVariables.join(",")}`);
+
+    // Initialize nestedUsages array only if there are nested variables
+    usageItem.nestedUsages = nestedVariables
+      .map((varName) => {
+        const uniqueId = this.lookupVariable(usageItem.file, varName, contextMap);
+        const foundContext = contextMap.get(uniqueId);
+        if (!foundContext) return null;
+
+        // Create a new nested usage entry for this variable
+        return foundContext.usages.map((usage) => ({
+          code: usage.code,
+          fullLine: usage.fullLine,
+          file: usage.file,
+          position: usage.position,
+          type: usage.type,
+          details: usage.details,
+        }));
+      })
+      .flat()
+      .filter(Boolean); // Remove null/undefined entries
+
+    // Recursively add nested usages for this nested variable
+    usageItem.nestedUsages.forEach((nestedUsage: any) => this.addNestedUsages(nestedUsage, contextMap));
+
+    // Remove empty nestedUsages array to keep output clean
+    if (!usageItem.nestedUsages.length) delete usageItem.nestedUsages;
   }
 
   /**

@@ -112,8 +112,23 @@ export const expectedGroupedGraph = {
             type: "usage",
             details: {
               context: "expression"
-            }
-          }
+            },
+            nestedUsages: [
+              {
+                code: "result",
+                fullLine: "console.log(result);",
+                file: "/test/main.js",
+                position: {
+                  line: 5,
+                  column: 16
+                },
+                type: "usage",
+                details: {
+                  context: "expression"
+                }
+              }
+            ]
+          },
         ],
         exportType: "exportNamed",
         exportedAs: "helper",
