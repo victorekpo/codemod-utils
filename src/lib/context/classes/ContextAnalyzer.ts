@@ -223,13 +223,13 @@ export class ContextAnalyzer {
 
     // Skip if fullLine is the same as originalDefinition
     if (context.originalDefinition === lineText) {
-      console.log(`[DEBUG] Skipping duplicate usage: ${lineText} in ${file}`);
+      // console.log(`[DEBUG] Skipping duplicate usage: ${lineText} in ${file}`);
       return;
     }
 
     // Skip duplicate usages
     if (context.usages.find(({ fullLine }) => fullLine === lineText)) {
-      console.log(`[DEBUG] Skipping duplicate usage found in map: ${lineText} in ${file}`);
+      // console.log(`[DEBUG] Skipping duplicate usage found in map: ${lineText} in ${file}`);
       return;
     }
 
