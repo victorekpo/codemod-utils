@@ -31,7 +31,7 @@ export const expectedGroupedGraph = {
       test: {
         file: "/test/main.js",
         varName: "test",
-        originalDefinition: 'const test = "Victor";',
+        originalDefinition: "const test = \"Victor\";",
         position: {
           line: 4,
           column: 10
@@ -59,19 +59,6 @@ export const expectedGroupedGraph = {
             position: {
               line: 3,
               column: 19
-            },
-            type: "usage",
-            details: {
-              context: "expression"
-            }
-          },
-          {
-            code: "helper",
-            fullLine: "export function helper() {",
-            file: "/test/helper.js",
-            position: {
-              line: 2,
-              column: 20
             },
             type: "usage",
             details: {

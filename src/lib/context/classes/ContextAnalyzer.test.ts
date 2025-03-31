@@ -21,10 +21,9 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
 
     // Create a new instance of the analyzer
     analyzer = new ContextAnalyzer();
-    await analyzer.analyzeEntrypoints("/test/main.js", true, false);
+    await analyzer.analyzeEntrypoints("/test/main.js", false, false);
     actualGraph = analyzer.convertGraphToObject();
     groupedGraph = analyzer.convertGraphToGroupedGraph();
-    console.log("Original context map:", JSON.stringify(actualGraph, null, 2));
     console.log("Grouped context map:", JSON.stringify(groupedGraph, null, 2));
   });
 
@@ -98,6 +97,6 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
 
   test("dependency graph matches expected structure", () => {
     const normalizedObject = JSON.parse(JSON.stringify(groupedGraph));
-    expect(expectedGroupedGraph).toMatchObject(normalizedObject);
+    expect(normalizedObject).toMatchObject(expectedGroupedGraph);
   });
 });

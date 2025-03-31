@@ -73,7 +73,7 @@ export class ContextAnalyzer {
     // Track Variable Usages
     root.find(this.j.Identifier).forEach((p) => {
       const varName = p.node.name;
-      const uniqueId = this.lookupVariable(varName, contextMap);
+      const uniqueId = this.lookupVariable(filePath, varName, contextMap);
       if (uniqueId) {
         this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "expression" }, lines, contextMap);
       }
@@ -82,43 +82,61 @@ export class ContextAnalyzer {
     // Track Exports
     root.find(this.j.ExportNamedDeclaration).forEach((p) => {
       const declaration = p.node.declaration;
+      let exportNames: string[] = [];
+      let aliasedExports: { local: string; exported: string }[] = [];
 
       // Check if declaration is a VariableDeclaration or FunctionDeclaration
       if (n.VariableDeclaration.check(declaration) || n.FunctionDeclaration.check(declaration)) {
-        let exportName: string | undefined;
-
         // Handle VariableDeclaration
         if (n.VariableDeclaration.check(declaration)) {
-          // Iterate over all declarations and extract their names
           declaration.declarations.forEach((decl) => {
-            // If the declaration id is an Identifier (variable name), get the name
-            // @ts-ignore
-            if (decl.id.name) {
-              // @ts-ignore
-              exportName = decl.id.name;
+            if (n.VariableDeclarator.check(decl)) {
+              if (n.Identifier.check(decl.id)) {
+                // Simple variable declaration
+                exportNames.push(decl.id.name);
+              } else if (n.ObjectPattern.check(decl.id) || n.ArrayPattern.check(decl.id)) {
+                // Handle destructuring assignment
+                this.extractPatternNames(decl.id).forEach((name) => exportNames.push(name));
+              }
             }
-
-            // @ts-ignore
-            if (decl.name) {
-              // @ts-ignore
-              exportName = decl.name;
-            }
-            // Log the variable names if there are multiple
-            console.log("Exported variable name:", exportName);
           });
         }
 
         // Handle FunctionDeclaration
-        if (n.FunctionDeclaration.check(declaration)) {
-          exportName = (declaration.id as n.Identifier).name; // Safely assert declaration.id is an Identifier
-        }
-
-        // If exportName is found, track the export
-        if (exportName) {
-          const uniqueId = this.addVariable(filePath, exportName, p.node, lines, contextMap);
-          this.trackExport(uniqueId, filePath, p.node, "exportNamed", exportName, lines, contextMap);
+        if (n.FunctionDeclaration.check(declaration) && declaration.id) {
+          exportNames.push(declaration.id.name);
         }
       }
+
+      // Handle named exports (export { myProfile }; and export { myProfile as profile };)
+      if (p.node.specifiers) {
+        p.node.specifiers.forEach((specifier) => {
+          if (n.ExportSpecifier.check(specifier)) {
+            const localName = specifier.local.name;
+            const exportedName = specifier.exported.name;
+
+            if (localName !== exportedName) {
+              // Track alias separately
+              aliasedExports.push({ local: localName, exported: exportedName });
+            } else {
+              // Normal named export
+              exportNames.push(exportedName);
+            }
+          }
+        });
+      }
+
+      // Track all regular named exports
+      exportNames.forEach((exportName) => {
+        const uniqueId = this.addVariable(filePath, exportName, p.node, lines, contextMap);
+        this.trackExport(uniqueId, filePath, p.node, "exportNamed", exportName, lines, contextMap);
+      });
+
+      // Track aliased exports separately
+      aliasedExports.forEach(({ local, exported }) => {
+        const uniqueId = this.addVariable(filePath, exported, p.node, lines, contextMap);
+        this.trackExport(uniqueId, filePath, p.node, "exportNamedAlias", `${local} as ${exported}`, lines, contextMap);
+      });
     });
 
 
@@ -312,13 +330,14 @@ export class ContextAnalyzer {
 
   /**
    * Looks up a variable by its name in the context map.
+   * @param filePath - The filePath of the variable.
    * @param varName - The name of the variable.
    * @param contextMap - The map storing all variable contexts.
    * @returns The unique ID of the variable or undefined if not found.
    */
-  lookupVariable(varName: string, contextMap: Map<string, any>): string | undefined {
+  lookupVariable(filePath, varName: string, contextMap: Map<string, any>): string | undefined {
     for (const [uniqueId, context] of contextMap) {
-      if (context.varName === varName) {
+      if (context.varName === varName && context.file === filePath) {
         return uniqueId;
       }
     }
@@ -399,6 +418,28 @@ export class ContextAnalyzer {
     const data = await fs.readFile(filePath, "utf-8");
     this.contextMap = JSON.parse(data);
     console.log("Loaded context graph:", this.contextMap);
+  }
+
+  extractPatternNames(pattern: n.ObjectPattern | n.ArrayPattern): string[] {
+    const names: string[] = [];
+
+    if (n.ObjectPattern.check(pattern)) {
+      pattern.properties.forEach((prop) => {
+        if (n.Property.check(prop) && n.Identifier.check(prop.key)) {
+          names.push(prop.key.name);
+        } else if (n.RestElement.check(prop) && n.Identifier.check(prop.argument)) {
+          names.push(prop.argument.name);
+        }
+      });
+    } else if (n.ArrayPattern.check(pattern)) {
+      pattern.elements.forEach((element) => {
+        if (element && n.Identifier.check(element)) {
+          names.push(element.name);
+        }
+      });
+    }
+
+    return names;
   }
 
   private isTopLevelStatement(node: any): boolean {
