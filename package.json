@@ -31,6 +31,7 @@
     "type-check": "tsc --noEmit",
     "test": "NODE_OPTIONS=\"--experimental-vm-modules\" jest",
     "pack": "npm run build && npm pack && mv victorekpo-codemod-utils-0.0.1.tgz codemod-utils.tgz",
+    "pub": "npm run publish:github",
     "publish:github": "npm run build && npm publish --access public"
   },
   "dependencies": {
