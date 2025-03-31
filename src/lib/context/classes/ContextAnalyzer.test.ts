@@ -36,9 +36,9 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
     const mainJs = groupedGraph["/test/main.js"];
     const importEntry = mainJs.imports["helper"];
     expect(importEntry).toBeDefined();
-    expect(importEntry.imports.importType).toBe("import");
-    expect(importEntry.imports.importedFrom).toBe("./helper.js");
-    expect(importEntry.imports.importedFromFile).toBe("/test/helper.js");
+    expect(importEntry.importType).toBe("import");
+    expect(importEntry.importedFrom).toBe("./helper.js");
+    expect(importEntry.importedFromFile).toBe("/test/helper.js");
   });
 
   test("tracks 'result' variable declaration in 'main.js'", () => {
@@ -80,6 +80,8 @@ describe("ContextAnalyzer - Single Entrypoint", () => {
     const helperJs = groupedGraph["/test/helper.js"];
     const exportEntry = helperJs.exports["helper"];
     expect(exportEntry).toBeDefined();
+    expect(exportEntry.exportType).toBe("exportNamed");
+    expect(exportEntry.exportedAs).toBe("helper");
     expect(exportEntry.originalDefinition).toBe('export function helper() {');
   });
 
