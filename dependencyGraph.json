@@ -1,0 +1,146 @@
+{
+  "56b694c1-1644-4162-b586-c0a771b004ff": {
+    "file": "/test/main.js",
+    "varName": "helper",
+    "originalDefinition": "import { helper } from './helper.js';",
+    "position": {
+      "line": 2,
+      "column": 4
+    },
+    "usages": [
+      {
+        "code": "helper",
+        "fullLine": "const result = helper();",
+        "file": "/test/main.js",
+        "position": {
+          "line": 3,
+          "column": 19
+        },
+        "type": "usage",
+        "details": {
+          "context": "expression"
+        }
+      },
+      {
+        "code": "helper",
+        "fullLine": "export function helper() {",
+        "file": "/test/helper.js",
+        "position": {
+          "line": 2,
+          "column": 20
+        },
+        "type": "usage",
+        "details": {
+          "context": "expression"
+        }
+      }
+    ],
+    "exports": [],
+    "imports": [
+      {
+        "code": "import { helper } from './helper.js';",
+        "file": "/test/main.js",
+        "position": {
+          "line": 2,
+          "column": 4
+        },
+        "importType": "import",
+        "importedAs": "helper",
+        "importedFrom": "./helper.js",
+        "importedFromFile": "/test/helper.js"
+      }
+    ],
+    "transformations": []
+  },
+  "a29476e0-64ba-4303-a0f3-7691e748552e": {
+    "file": "/test/main.js",
+    "varName": "result",
+    "originalDefinition": "const result = helper();",
+    "position": {
+      "line": 3,
+      "column": 10
+    },
+    "usages": [
+      {
+        "code": "result",
+        "fullLine": "console.log(result);",
+        "file": "/test/main.js",
+        "position": {
+          "line": 5,
+          "column": 16
+        },
+        "type": "usage",
+        "details": {
+          "context": "expression"
+        }
+      }
+    ],
+    "exports": [],
+    "imports": [],
+    "transformations": []
+  },
+  "8bc294d3-5e47-4ad1-a21b-140869917e40": {
+    "file": "/test/main.js",
+    "varName": "test",
+    "originalDefinition": "const test = \"Victor\";",
+    "position": {
+      "line": 4,
+      "column": 10
+    },
+    "usages": [],
+    "exports": [],
+    "imports": [],
+    "transformations": []
+  },
+  "3db09d94-d4fb-4fe1-9da7-c2b6cb367a08": {
+    "file": "/test/helper.js",
+    "varName": "helper",
+    "originalDefinition": "export function helper() {",
+    "position": {
+      "line": 2,
+      "column": 4
+    },
+    "usages": [
+      {
+        "code": "import { helper } from '/test/helper.js';",
+        "fullLine": "import { helper } from '/test/helper.js';",
+        "file": "/test/main.js",
+        "position": {
+          "line": 2,
+          "column": 4
+        },
+        "type": "usage",
+        "details": {
+          "context": "expression"
+        }
+      },
+      {
+        "code": "helper",
+        "fullLine": "const result = helper();",
+        "file": "/test/main.js",
+        "position": {
+          "line": 3,
+          "column": 19
+        },
+        "type": "usage",
+        "details": {
+          "context": "expression"
+        }
+      }
+    ],
+    "exports": [
+      {
+        "code": "export function helper() {",
+        "file": "/test/helper.js",
+        "position": {
+          "line": 2,
+          "column": 4
+        },
+        "exportType": "exportNamed",
+        "exportedAs": "helper"
+      }
+    ],
+    "imports": [],
+    "transformations": []
+  }
+}

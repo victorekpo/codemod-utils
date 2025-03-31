@@ -14,9 +14,9 @@ export class ContextAnalyzer {
   }
 
   async analyzeEntrypoints(entryPointPath: string, doLog = true, doSave = true): Promise<void> {
-    const analyzer = new ContextAnalyzer();
+    // const analyzer = new ContextAnalyzer();
     const map = this.contextMap;
-    await analyzer.analyzeFile(entryPointPath, map);
+    await this.analyzeFile(entryPointPath, map);
 
     if (doLog) {
       this.logGraph();
