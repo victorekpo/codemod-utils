@@ -24,8 +24,6 @@ export const expectedGroupedGraph = {
             }
           }
         ],
-        exports: [],
-        imports: [],
         transformations: []
       },
       test: {
@@ -37,8 +35,6 @@ export const expectedGroupedGraph = {
           column: 10
         },
         usages: [],
-        exports: [],
-        imports: [],
         transformations: []
       }
     },
@@ -66,21 +62,10 @@ export const expectedGroupedGraph = {
             }
           }
         ],
-        exports: [],
-        imports: [
-          {
-            code: "import { helper } from './helper.js';",
-            file: "/test/main.js",
-            position: {
-              line: 2,
-              column: 4
-            },
-            importType: "import",
-            importedAs: "helper",
-            importedFrom: "./helper.js",
-            importedFromFile: "/test/helper.js"
-          }
-        ],
+        importType: "import",
+        importedAs: "helper",
+        importedFrom: "./helper.js",
+        importedFromFile: "/test/helper.js",
         transformations: []
       }
     },
@@ -126,19 +111,8 @@ export const expectedGroupedGraph = {
             }
           }
         ],
-        exports: [
-          {
-            code: "export function helper() {",
-            file: "/test/helper.js",
-            position: {
-              line: 2,
-              column: 4
-            },
-            exportType: "exportNamed",
-            exportedAs: "helper"
-          }
-        ],
-        imports: [],
+        exportType: "exportNamed",
+        exportedAs: "helper",
         transformations: []
       }
     }

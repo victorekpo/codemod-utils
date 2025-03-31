@@ -355,19 +355,57 @@ export class ContextAnalyzer {
     for (const key in graph) {
       const entry = graph[key];
       const file = entry.file;
+      const hasImports = entry.imports && entry.imports.length;
+      const hasExports = entry.exports && entry.exports.length;
+
+
       if (!result[file]) {
         result[file] = { variables: {}, imports: {}, exports: {} };
       }
-      const def = entry.originalDefinition.trim();
-      if (def.startsWith("import")) {
-        // Use the imported specifier as the key
-        result[file].imports[entry.varName] = entry;
-      } else if (def.startsWith("export")) {
-        result[file].exports[entry.varName] = entry;
-      } else {
-        result[file].variables[entry.varName] = entry;
+
+      const { imports, exports, ...rest } = entry;
+
+      let newEntry;
+      if (hasImports) {
+        // delete unneeded keys
+        delete entry.imports[0].file;
+        delete entry.imports[0].code;
+        delete entry.imports[0].position;
+
+        // flatten imports since we can rightfully only have one import per variable in a single file
+        newEntry = {
+          ...rest,
+          ...imports[0]
+        }
+
+        result[file].imports[entry.varName] = newEntry;
       }
+
+      if (hasExports) {
+        // delete unneeded keys
+        delete entry.exports[0].file;
+        delete entry.exports[0].code;
+        delete entry.exports[0].position;
+
+        // flatten exports since we can rightfully only have one export per variable in a single file
+        newEntry = {
+          ...rest,
+          ...exports[0]
+        }
+
+        result[file].exports[entry.varName] = newEntry;
+      }
+
+      if (!hasImports && !hasExports) {
+        newEntry = {
+          ...rest
+        }
+
+        result[file].variables[entry.varName] = newEntry;
+      }
+      // end loop
     }
+
     return result;
   }
 
