@@ -259,7 +259,7 @@ export class ContextAnalyzer {
             fullLine: imp.fullLine,
             file: imp.file,
             position: imp.position,
-            type: "exported_usage",
+            type: "imported_usage",
             details: { context: "expression" },
           });
 
@@ -310,7 +310,7 @@ export class ContextAnalyzer {
             code: exp.code,
             file: exp.file,
             position: exp.position,
-            type: "imported_usage",
+            type: "exported_usage",
             details: { context: "import" },
           });
 

@@ -82,7 +82,7 @@ export const expectedGroupedGraph = {
               line: 2,
               column: 4
             },
-            type: "imported_usage",
+            type: "exported_usage",
             details: {
               context: "import"
             }
@@ -133,7 +133,7 @@ export const expectedGroupedGraph = {
               line: 2,
               column: 4
             },
-            type: "exported_usage",
+            type: "imported_usage",
             details: {
               context: "expression"
             }
