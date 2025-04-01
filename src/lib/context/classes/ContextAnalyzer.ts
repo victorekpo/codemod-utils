@@ -148,22 +148,63 @@ export class ContextAnalyzer {
       this.trackExport(uniqueId, filePath, p.node, "exportDefault", "default", filePath, lines, contextMap);
     });
 
+    // // Track Variable Declarations and Usages
+    // root.find(this.j.VariableDeclarator).forEach((p) => {
+    //   if (n.Identifier.check(p.node.id)) {
+    //     const varName = p.node.id.name;
+    //
+    //     const contextMapArray = Array.from(contextMap.entries());
+    //     const existingVar = contextMapArray.find(([_, context]) => context.exports.find(x => {
+    //       return x.exportedAs === varName;
+    //     }) && context.file === filePath);
+    //
+    //     if (!existingVar) {
+    //       const uniqueId = this.addVariable(filePath, varName, p.node, lines, contextMap);
+    //       this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "declaration" }, lines, contextMap);
+    //     }
+    //   }
+    // });
+
     // Track Variable Declarations and Usages
     root.find(this.j.VariableDeclarator).forEach((p) => {
-      if (n.Identifier.check(p.node.id)) {
-        const varName = p.node.id.name;
+      const { id, init } = p.node;
+
+      // Handle simple variable declarations: const varName = ...
+      if (n.Identifier.check(id)) {
+        const varName = id.name;
 
         const contextMapArray = Array.from(contextMap.entries());
-        const existingVar = contextMapArray.find(([_, context]) => context.exports.find(x => {
-          return x.exportedAs === varName;
-        }) && context.file === filePath);
+        const existingVar = contextMapArray.find(([_, context]) =>
+          context.exports.some(x => x.exportedAs === varName) && context.file === filePath
+        );
 
         if (!existingVar) {
           const uniqueId = this.addVariable(filePath, varName, p.node, lines, contextMap);
           this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "declaration" }, lines, contextMap);
         }
       }
+
+      // Handle object destructuring: const { myVar } = myObj;
+      else if (n.ObjectPattern.check(id) && init && n.Identifier.check(init)) {
+        const sourceVar = init.name;
+
+        id.properties.forEach((prop: any) => {
+          if (!n.Property.check(prop) || !n.Identifier.check(prop.key)) return;
+
+          const extractedVar = prop.key.name;
+          const uniqueId = this.addVariable(filePath, extractedVar, p.node, lines, contextMap);
+
+          // Associate extracted variable with its source (e.g., profile → myProfile)
+          const context = contextMap.get(uniqueId);
+          if (context) {
+            context.derivedFrom = sourceVar;
+          }
+
+          this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "declaration" }, lines, contextMap);
+        });
+      }
     });
+
 
     // Track Variable Usages
     root.find(this.j.Identifier).forEach((p) => {
@@ -176,8 +217,14 @@ export class ContextAnalyzer {
 
       if (!existingVar) {
         const uniqueId = this.lookupVariable(filePath, varName, contextMap);
+
+        let node = p.node;
         if (uniqueId) {
-          this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "expression" }, lines, contextMap);
+          if (!p.node.loc) {
+            node = p.parent.node;
+            console.info("Node location not found, using parent node for reference");
+          }
+          this.trackUsage(uniqueId, filePath, node, "usage", { context: "expression" }, lines, contextMap);
         }
       }
     });
@@ -282,6 +329,10 @@ export class ContextAnalyzer {
     if (!contextMap.has(uniqueId)) return;
 
     const context = contextMap.get(uniqueId);
+
+    if (!node.loc) {
+      console.error("Node location not found", node);
+    }
     const lineText = lines[node.loc.start.line - 1].trim();
 
     // Skip if fullLine is the same as originalDefinition

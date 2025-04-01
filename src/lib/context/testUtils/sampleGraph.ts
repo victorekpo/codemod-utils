@@ -12,10 +12,23 @@ export const expectedGroupedGraph = {
         usages: [
           {
             code: "result",
+            fullLine: "const { res } = result;",
+            file: "/test/main.js",
+            position: {
+              line: 4,
+              column: 20
+            },
+            type: "usage",
+            details: {
+              context: "expression"
+            }
+          },
+          {
+            code: "result",
             fullLine: "console.log(result);",
             file: "/test/main.js",
             position: {
-              line: 5,
+              line: 6,
               column: 16
             },
             type: "usage",
@@ -25,6 +38,18 @@ export const expectedGroupedGraph = {
           }
         ],
         transformations: []
+      },
+      res: {
+        file: "/test/main.js",
+        varName: "res",
+        originalDefinition: "const { res } = result;",
+        position: {
+          line: 4,
+          column: 10
+        },
+        usages: [],
+        transformations: [],
+        derivedFrom: "result"
       }
     },
     imports: {
@@ -51,11 +76,11 @@ export const expectedGroupedGraph = {
             }
           }
         ],
+        transformations: [],
         importType: "import",
         importName: "helper",
         importedFrom: "./helper.js",
-        importedFromFile: "/test/helper.js",
-        transformations: []
+        importedFromFile: "/test/helper.js"
       }
     },
     exports: {
@@ -64,7 +89,7 @@ export const expectedGroupedGraph = {
         varName: "test",
         originalDefinition: "export const test = \"Victor\";",
         position: {
-          line: 4,
+          line: 5,
           column: 4
         },
         usages: [],
@@ -116,10 +141,23 @@ export const expectedGroupedGraph = {
             nestedUsages: [
               {
                 code: "result",
+                fullLine: "const { res } = result;",
+                file: "/test/main.js",
+                position: {
+                  line: 4,
+                  column: 20
+                },
+                type: "usage",
+                details: {
+                  context: "expression"
+                }
+              },
+              {
+                code: "result",
                 fullLine: "console.log(result);",
                 file: "/test/main.js",
                 position: {
-                  line: 5,
+                  line: 6,
                   column: 16
                 },
                 type: "usage",
@@ -128,12 +166,12 @@ export const expectedGroupedGraph = {
                 }
               }
             ]
-          },
+          }
         ],
+        transformations: [],
         exportType: "exportNamed",
         exportedAs: "helper",
-        exportedFromFile: "/test/helper.js",
-        transformations: []
+        exportedFromFile: "/test/helper.js"
       }
     }
   }
