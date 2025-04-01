@@ -17,6 +17,9 @@ export class ContextAnalyzer {
     // const analyzer = new ContextAnalyzer();
     const map = this.contextMap;
     await this.analyzeFile(entryPointPath, map);
+    // post analysis to connect the dependency graph
+    this.connectDependencyGraph(map);
+
 
     if (doLog) {
       this.logGraph();
@@ -148,22 +151,6 @@ export class ContextAnalyzer {
       this.trackExport(uniqueId, filePath, p.node, "exportDefault", "default", filePath, lines, contextMap);
     });
 
-    // // Track Variable Declarations and Usages
-    // root.find(this.j.VariableDeclarator).forEach((p) => {
-    //   if (n.Identifier.check(p.node.id)) {
-    //     const varName = p.node.id.name;
-    //
-    //     const contextMapArray = Array.from(contextMap.entries());
-    //     const existingVar = contextMapArray.find(([_, context]) => context.exports.find(x => {
-    //       return x.exportedAs === varName;
-    //     }) && context.file === filePath);
-    //
-    //     if (!existingVar) {
-    //       const uniqueId = this.addVariable(filePath, varName, p.node, lines, contextMap);
-    //       this.trackUsage(uniqueId, filePath, p.node, "usage", { context: "declaration" }, lines, contextMap);
-    //     }
-    //   }
-    // });
 
     // Track Variable Declarations and Usages
     root.find(this.j.VariableDeclarator).forEach((p) => {
@@ -222,7 +209,7 @@ export class ContextAnalyzer {
         if (uniqueId) {
           if (!p.node.loc) {
             node = p.parent.node;
-            console.info("Node location not found, using parent node for reference");
+            // console.info("Node location not found, using parent node for reference");
           }
           this.trackUsage(uniqueId, filePath, node, "usage", { context: "expression" }, lines, contextMap);
         }
@@ -244,6 +231,128 @@ export class ContextAnalyzer {
 
     for (const dep of localDeps) {
       await this.analyzeFile(dep, contextMap);
+    }
+  }
+
+  /**
+   * Connects exports to their corresponding usages in the context map.
+   *
+   * @param uniqueId - The unique identifier for the file context.
+   * @param context - The context containing exports and imports.
+   * @param contextMap - The map storing all file contexts.
+   */
+  connectExports(uniqueId: string, context, contextMap: Map<string, any>): void {
+    if (!context.exports || context.exports.length === 0) return;
+    context.exports.forEach((exp) => {
+      // console.log("Processing export:", exp);
+      for (const [importId, importContext] of contextMap) {
+        if (importId === uniqueId) continue;
+
+        importContext.imports.forEach((imp) => {
+          // Check if the import references the current file (exporting file)
+          if (imp.importedFromFile !== exp.exportedFromFile || imp.importName !== exp.exportedAs) {
+            return;
+          }
+
+          context.usages.push({
+            code: imp.code,
+            fullLine: imp.fullLine,
+            file: imp.file,
+            position: imp.position,
+            type: "exported_usage",
+            details: { context: "expression" },
+          });
+
+          // Add other usages from the found context
+          for (const usage of importContext.usages) {
+            if (usage.file === exp.file) continue;
+
+            const usageItem = {
+              code: usage.code,
+              fullLine: usage.fullLine,
+              file: usage.file,
+              position: usage.position,
+              type: usage.type,
+              details: usage.details,
+            };
+
+            // Add nested usages for this initial usage
+            this.addNestedUsages(usageItem, contextMap);
+
+            context.usages.push(usageItem);
+          }
+        });
+      }
+    });
+  }
+
+  /**
+   * Connects imports to their corresponding exports in the context map.
+   *
+   * @param uniqueId - The unique identifier for the file context.
+   * @param context - The context containing imports.
+   * @param contextMap - The map storing all file contexts.
+   */
+  connectImports(uniqueId: string, context, contextMap: Map<string, any>): void {
+    if (!context.imports || context.imports.length === 0) return;
+
+    context.imports.forEach((imp) => {
+      // console.log("Processing import:", imp);
+      for (const [exportId, exportContext] of contextMap) {
+        if (exportId === uniqueId) continue;
+
+        exportContext.exports.forEach((exp) => {
+          if (exp.exportedFromFile !== imp.importedFromFile || exp.exportedAs !== imp.importName) {
+            return;
+          }
+
+          context.usages.push({
+            code: exp.code,
+            file: exp.file,
+            position: exp.position,
+            type: "imported_usage",
+            details: { context: "import" },
+          });
+
+          // Add other usages from the found context
+          for (const usage of exportContext.usages) {
+            if (usage.file === imp.file) continue;
+
+            const usageItem = {
+              code: usage.code,
+              fullLine: usage.fullLine,
+              file: usage.file,
+              position: usage.position,
+              type: usage.type,
+              details: usage.details,
+            };
+
+            // Add nested usages for this initial usage
+            this.addNestedUsages(usageItem, contextMap);
+
+            context.usages.push(usageItem);
+          }
+
+        });
+      }
+    });
+  }
+
+  /**
+   * Connects the dependency graph by linking imports and exports.
+   * @param contextMap - The map storing all variable contexts.
+   * @returns
+   */
+  connectDependencyGraph(contextMap: Map<string, any>): void {
+    console.log("Connecting dependency graph...");
+
+    for (const [uniqueId, context] of contextMap) {
+      // console.log("Processing uniqueId:", uniqueId);
+
+      // Connect Imports
+      this.connectImports(uniqueId, context, contextMap);
+      // Connect Exports
+      this.connectExports(uniqueId, context, contextMap);
     }
   }
 
@@ -383,56 +492,17 @@ export class ContextAnalyzer {
     if (!context) return;
 
     const lineText = lines[node.loc.start.line - 1].trim();
-    context.exports.push({
+
+    const exportItem = {
       code: lineText,
       file,
       position: node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : null,
       exportType,
       exportedAs,
       exportedFromFile,
-    });
-
-    // Now, check the contextMap for any imports that use this file
-    for (const [importId, importContext] of contextMap) {
-      // Skip the current file's import context
-      if (importId === uniqueId) continue;
-
-      importContext.imports.forEach((imp) => {
-        // Check if the import references the current file (exporting file)
-        if (imp.importedFromFile !== exportedFromFile || imp.importName !== exportedAs) return;
-
-        context.usages.push({
-          code: imp.code,
-          fullLine: imp.fullLine,
-          file: imp.file,
-          position: imp.position,
-          type: "usage",
-          details: { context: "expression" },
-        });
-
-        // Add other usages from the found context
-        for (const usage of importContext.usages) {
-          if (usage.file === file) continue;
-
-          const usageItem = {
-            code: usage.code,
-            fullLine: usage.fullLine,
-            file: usage.file,
-            position: usage.position,
-            type: usage.type,
-            details: usage.details,
-          };
-
-          // Check if the usage code is the final statement and doesn't reference more variables
-          // console.log("Usage Full Line", usage.fullLine);
-
-          // Add nested usages for this initial usage
-          this.addNestedUsages(usageItem, contextMap);
-
-          context.usages.push(usageItem);
-        }
-      });
-    }
+    };
+    // console.log("Adding export:", exportItem);
+    context.exports.push(exportItem);
   }
 
   /**
@@ -459,10 +529,13 @@ export class ContextAnalyzer {
    */
   addNestedUsages(usageItem: any, contextMap: Map<string, any>): void {
     // Use jscodeshift to extract variables from the usage code
+    if (!usageItem.fullLine) {
+      console.error("Full line not found for usage item", usageItem);
+    }
     const nestedVariables = this.extractVariablesFromCode(usageItem.fullLine);
     if (!nestedVariables.length) return;
 
-    console.log(`Nested variables found: ${nestedVariables.join(",")}`);
+    // console.log(`Nested variables found: ${nestedVariables.join(",")}`);
 
     // Initialize nestedUsages array only if there are nested variables
     usageItem.nestedUsages = nestedVariables
@@ -644,6 +717,7 @@ export class ContextAnalyzer {
     return names;
   }
 
+
   private isTopLevelStatement(node: any): boolean {
     return [
       "VariableDeclaration", "ExpressionStatement", "ReturnStatement",
@@ -674,7 +748,6 @@ export class ContextAnalyzer {
 
     return this.j(current).toSource(); // Fallback if no declaration found
   }
-
 
   private isVariableDeclaration(node: any): boolean {
     return node.type === "VariableDeclaration";

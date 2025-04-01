@@ -74,6 +74,18 @@ export const expectedGroupedGraph = {
             details: {
               context: "expression"
             }
+          },
+          {
+            code: "export function helper() {",
+            file: "/test/helper.js",
+            position: {
+              line: 2,
+              column: 4
+            },
+            type: "imported_usage",
+            details: {
+              context: "import"
+            }
           }
         ],
         transformations: [],
@@ -121,7 +133,7 @@ export const expectedGroupedGraph = {
               line: 2,
               column: 4
             },
-            type: "usage",
+            type: "exported_usage",
             details: {
               context: "expression"
             }
