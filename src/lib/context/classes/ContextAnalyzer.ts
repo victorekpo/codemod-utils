@@ -353,7 +353,7 @@ export class ContextAnalyzer {
       if (otherId === uniqueId) continue;
       //  console.log("OtherContext", context)
       otherContext.usages.forEach((usage) => {
-        if (usage.code !== context.varName || usage.fullLine === context.originalDefinition) return;
+        if (!usage.derivedFrom || usage.code !== context.varName || usage.fullLine === context.originalDefinition) return;
 
         // Add other usages from the found context
         console.log("Usage FILE", usage.file, usage.varName, usage.code)
@@ -395,7 +395,7 @@ export class ContextAnalyzer {
     for (const [uniqueId, context] of contextMap) {
       // console.log("Processing uniqueId:", uniqueId);
 
-      //  this.connectVariables(uniqueId, context, contextMap);
+      this.connectVariables(uniqueId, context, contextMap);
       // Connect Imports
       this.connectImports(uniqueId, context, contextMap);
       // Connect Exports
