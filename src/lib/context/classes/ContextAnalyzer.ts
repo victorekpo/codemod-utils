@@ -307,7 +307,8 @@ export class ContextAnalyzer {
           }
 
           context.usages.push({
-            code: exp.code,
+            code: exp.varName || exp.exportedAs,
+            fullLine: exp.code,
             file: exp.file,
             position: exp.position,
             type: "exported_usage",
@@ -339,6 +340,51 @@ export class ContextAnalyzer {
   }
 
   /**
+   * Connects variable usages across the context map by tracking references, including destructured or derived variables.
+   *
+   * @param uniqueId - The unique identifier for the file context.
+   * @param context - The context containing variables.
+   * @param contextMap - The map storing all file contexts.
+   */
+  connectVariables(uniqueId: string, context, contextMap: Map<string, any>): void {
+    if (!context.varName) return;
+    console.log("Context", context.varName, "Context FILE", context.file)
+    for (const [otherId, otherContext] of contextMap) {
+      if (otherId === uniqueId) continue;
+      //  console.log("OtherContext", context)
+      otherContext.usages.forEach((usage) => {
+        if (usage.code !== context.varName || usage.fullLine === context.originalDefinition) return;
+
+        // Add other usages from the found context
+        console.log("Usage FILE", usage.file, usage.varName, usage.code)
+        console.log("OtherContextUsage", usage)
+        // if (usage.file !== context.file) {
+        //   return;
+        // }
+
+        const usageItem = {
+          code: usage.code,
+          fullLine: usage.fullLine,
+          file: usage.file,
+          position: usage.position,
+          type: usage.type,
+          details: usage.details,
+        };
+
+        // Add nested usages for this initial usage
+        this.addNestedUsages(usageItem, contextMap);
+
+
+        if (!context.nestedUsages) {
+          context.nestedUsages = [];
+        }
+
+        context.nestedUsages.push(usageItem);
+      });
+    }
+  }
+
+  /**
    * Connects the dependency graph by linking imports and exports.
    * @param contextMap - The map storing all variable contexts.
    * @returns
@@ -349,6 +395,7 @@ export class ContextAnalyzer {
     for (const [uniqueId, context] of contextMap) {
       // console.log("Processing uniqueId:", uniqueId);
 
+      //  this.connectVariables(uniqueId, context, contextMap);
       // Connect Imports
       this.connectImports(uniqueId, context, contextMap);
       // Connect Exports
@@ -511,15 +558,27 @@ export class ContextAnalyzer {
    * @returns An array of unique variable names.
    */
   extractVariablesFromCode(code: string): string[] {
-    const root = jscodeshift(code); // Parse the code into an AST
-    const variables = new Set<string>(); // Use a Set to avoid duplicates
+    let result = [];
+    let root;
 
+    try {
+      // Try to parse the code with jscodeshift into an AST
+      root = jscodeshift(code);
+    } catch {
+      console.error("Error parsing code into AST", code);
+      return result;
+    }
+
+    // If we can't parse the code, return an empty array
+    const variables = new Set(); // Use a Set to avoid duplicates
     // Find all VariableDeclarators (e.g., const foo = ...)
-    root.find(jscodeshift.VariableDeclarator).forEach((path: any) => {
+    root.find(jscodeshift.VariableDeclarator).forEach((path) => {
       variables.add(path.node.id.name); // Add variable name to the Set
     });
-
-    return variables.size ? Array.from(variables) : [];
+    if (variables.size) {
+      result = Array.from(variables);
+    }
+    return result;
   }
 
   /**

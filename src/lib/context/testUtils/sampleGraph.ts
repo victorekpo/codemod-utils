@@ -76,7 +76,8 @@ export const expectedGroupedGraph = {
             }
           },
           {
-            code: "export function helper() {",
+            code: "helper",
+            fullLine: "export function helper() {",
             file: "/test/helper.js",
             position: {
               line: 2,
