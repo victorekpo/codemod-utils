@@ -4,15 +4,29 @@ import fs from "fs/promises";
 import nodePath from "node:path";
 import { v4 as uuidv4 } from "uuid";
 
+/**
+ * Class representing a context analyzer for analyzing dependencies in a project by traversing the AST and creating a dependency graph.
+ */
 export class ContextAnalyzer {
   public contextMap: Map<string, any>;
   private j: jscodeshift.JSCodeshift;
 
+  /**
+   * Creates an instance of ContextAnalyzer.
+   */
   constructor() {
     this.j = jscodeshift.withParser("babel-ts");
     this.contextMap = new Map<string, any>();
   }
 
+  /**
+   * Analyzes the entry points of the project, updates the context map, and optionally logs and saves the dependency graph.
+   *
+   * @param {string} entryPointPath - The path to the entry point file.
+   * @param {boolean} [doLog=true] - Whether to log the dependency graph.
+   * @param {boolean} [doSave=true] - Whether to save the dependency graph to files.
+   * @returns {Promise<void>} - A promise that resolves when the analysis is complete.
+   */
   async analyzeEntrypoints(entryPointPath: string, doLog = true, doSave = true): Promise<void> {
     // const analyzer = new ContextAnalyzer();
     const map = this.contextMap;
@@ -346,41 +360,21 @@ export class ContextAnalyzer {
    * @param context - The context containing variables.
    * @param contextMap - The map storing all file contexts.
    */
-  connectVariables(uniqueId: string, context, contextMap: Map<string, any>): void {
-    if (!context.varName) return;
-    console.log("Context", context.varName, "Context FILE", context.file)
-    for (const [otherId, otherContext] of contextMap) {
-      if (otherId === uniqueId) continue;
-      //  console.log("OtherContext", context)
-      otherContext.usages.forEach((usage) => {
-        if (!usage.derivedFrom || usage.code !== context.varName || usage.fullLine === context.originalDefinition) return;
+  connectVariables(contextMap: Map<string, any>): void {
+    // Step 1: Group by file
+    const groupedByFile = new Map<string, any[]>();
+    for (const [id, ctx] of contextMap) {
+      if (!groupedByFile.has(ctx.file)) {
+        groupedByFile.set(ctx.file, []);
+      }
+      groupedByFile.get(ctx.file)?.push(ctx);
+    }
 
-        // Add other usages from the found context
-        console.log("Usage FILE", usage.file, usage.varName, usage.code)
-        console.log("OtherContextUsage", usage)
-        // if (usage.file !== context.file) {
-        //   return;
-        // }
-
-        const usageItem = {
-          code: usage.code,
-          fullLine: usage.fullLine,
-          file: usage.file,
-          position: usage.position,
-          type: usage.type,
-          details: usage.details,
-        };
-
-        // Add nested usages for this initial usage
-        this.addNestedUsages(usageItem, contextMap);
-
-
-        if (!context.nestedUsages) {
-          context.nestedUsages = [];
-        }
-
-        context.nestedUsages.push(usageItem);
-      });
+    // Step 2: Process each file group separately
+    for (const [file, contexts] of groupedByFile) {
+      for (const ctx of contexts) {
+        this.nestUsagesRecursively(ctx, contexts);
+      }
     }
   }
 
@@ -392,10 +386,10 @@ export class ContextAnalyzer {
   connectDependencyGraph(contextMap: Map<string, any>): void {
     console.log("Connecting dependency graph...");
 
+    this.connectVariables(contextMap);
+
     for (const [uniqueId, context] of contextMap) {
       // console.log("Processing uniqueId:", uniqueId);
-
-      this.connectVariables(uniqueId, context, contextMap);
       // Connect Imports
       this.connectImports(uniqueId, context, contextMap);
       // Connect Exports
@@ -513,7 +507,6 @@ export class ContextAnalyzer {
     });
   }
 
-
   /**
    * Tracks an export event for a variable.
    * @param uniqueId - The unique ID of the variable.
@@ -558,28 +551,50 @@ export class ContextAnalyzer {
    * @returns An array of unique variable names.
    */
   extractVariablesFromCode(code: string): string[] {
-    let result = [];
+    let result: string[] = [];
     let root;
 
     try {
-      // Try to parse the code with jscodeshift into an AST
+      // Parse the code into an AST
       root = jscodeshift(code);
-    } catch {
-      console.error("Error parsing code into AST", code);
+    } catch (error) {
+      console.error("Error parsing code into AST:", code, error);
       return result;
     }
 
-    // If we can't parse the code, return an empty array
-    const variables = new Set(); // Use a Set to avoid duplicates
-    // Find all VariableDeclarators (e.g., const foo = ...)
+    // If parsing fails, return an empty array
+    const variables = new Set<string>();
+
+    // Handle variable declarations, including destructuring
     root.find(jscodeshift.VariableDeclarator).forEach((path) => {
-      variables.add(path.node.id.name); // Add variable name to the Set
+      const { id } = path.node;
+
+      if (jscodeshift.Identifier.check(id)) {
+        // Simple variable: const foo = ...
+        variables.add(id.name);
+      } else if (jscodeshift.ObjectPattern.check(id)) {
+        // Object destructuring: const { foo, bar } = obj;
+        id.properties.forEach((prop) => {
+          if (
+            jscodeshift.Property.check(prop) && // Ensure it's a Property node
+            jscodeshift.Identifier.check(prop.key) // Ensure key is an Identifier
+          ) {
+            variables.add(prop.key.name);
+          }
+        });
+      } else if (jscodeshift.ArrayPattern.check(id)) {
+        // Array destructuring: const [a, b] = array;
+        id.elements.forEach((element) => {
+          if (element && jscodeshift.Identifier.check(element)) {
+            variables.add(element.name);
+          }
+        });
+      }
     });
-    if (variables.size) {
-      result = Array.from(variables);
-    }
-    return result;
+
+    return Array.from(variables);
   }
+
 
   /**
    * Recursively adds nested usages for a given usage item.
@@ -776,39 +791,25 @@ export class ContextAnalyzer {
     return names;
   }
 
+  private nestUsagesRecursively(ctx: any, contexts: any[]): void {
+    if (!ctx.usages || ctx.usages.length === 0) return;
 
-  private isTopLevelStatement(node: any): boolean {
-    return [
-      "VariableDeclaration", "ExpressionStatement", "ReturnStatement",
-      "IfStatement", "WhileStatement", "ForStatement"
-    ].includes(node.type);
-  }
+    for (const usage of ctx.usages) {
+      // Step 1: Extract variables from the usage's code
+      let extractedVariables = this.extractVariablesFromCode(usage.fullLine);
 
-  private extractFullStatement(node: any): string {
-    let current = node;
-
-    // If node is inside a VariableDeclarator, keep going up to find the full VariableDeclaration
-    while (current && current.parent) {
-      if (current.parent.type === "VariableDeclarator") {
-        current = current.parent; // Move up to the VariableDeclarator
+      for (const extractedVariable of extractedVariables) {
+        // Step 2: Check if the extracted variable exists in the context map of the same file
+        for (const otherCtx of contexts) {
+          const isFound = otherCtx.varName === extractedVariable;
+          if (isFound) {
+            if (!usage.nestedUsages) {
+              usage.nestedUsages = [];
+            }
+            usage.nestedUsages.push(otherCtx.usages);
+          }
+        }
       }
-      if (current.parent.type === "VariableDeclaration") {
-        return this.j(current.parent).toSource(); // Return full declaration: const/let/var
-      }
-
-      // Exit if we hit a top-level statement (e.g., a function or class body)
-      if (this.isTopLevelStatement(current.parent)) {
-        break;
-      }
-
-      // Otherwise, keep moving up the tree
-      current = current.parent;
     }
-
-    return this.j(current).toSource(); // Fallback if no declaration found
-  }
-
-  private isVariableDeclaration(node: any): boolean {
-    return node.type === "VariableDeclaration";
   }
 }

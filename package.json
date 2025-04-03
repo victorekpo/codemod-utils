@@ -1,6 +1,6 @@
 {
   "name": "@victorekpo/codemod-utils",
-  "version": "0.0.1-beta.3",
+  "version": "0.0.1-beta.2",
   "description": "Codemod utils",
   "keywords": [],
   "homepage": "https://github.com/victorekpo/codemod-utils#readme",
@@ -30,7 +30,7 @@
     "build": "npm run test && rm -rf dist && npm run type-check && rollup -c",
     "type-check": "tsc --noEmit",
     "test": "NODE_OPTIONS=\"--experimental-vm-modules\" jest",
-    "pack": "npm run build && npm pack && mv victorekpo-codemod-utils-0.0.1.tgz codemod-utils.tgz",
+    "pack": "rm -f *.tgz && npm run build && npm pack && mv victorekpo-codemod-utils*.tgz codemod-utils.tgz",
     "pub": "npm run publish:github",
     "publish:github": "npm run build && npm publish --access public"
   },
