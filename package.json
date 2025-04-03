@@ -1,7 +1,7 @@
 {
   "name": "@victorekpo/codemod-utils",
-  "version": "0.0.1-beta.2",
-  "description": "Codemod utils",
+  "version": "0.0.1",
+  "description": "codemod utils",
   "keywords": [],
   "homepage": "https://github.com/victorekpo/codemod-utils#readme",
   "bugs": {

@@ -317,7 +317,10 @@ export class ContextAnalyzer {
 
         exportContext.exports.forEach((exp) => {
           if (exp.exportedFromFile !== imp.importedFromFile || exp.exportedAs !== imp.importName) {
+            // i don't need this because exports already gives the information so we don't need to be redundant and nest it under imports
+            // if (!(exp.exportedAs === imp.importName && exp.file === imp.file)) {
             return;
+            // }
           }
 
           context.usages.push({
@@ -356,8 +359,6 @@ export class ContextAnalyzer {
   /**
    * Connects variable usages across the context map by tracking references, including destructured or derived variables.
    *
-   * @param uniqueId - The unique identifier for the file context.
-   * @param context - The context containing variables.
    * @param contextMap - The map storing all file contexts.
    */
   connectVariables(contextMap: Map<string, any>): void {
