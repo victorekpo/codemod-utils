@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from "uuid";
  */
 export class ContextAnalyzer {
   public contextMap: Map<string, any>;
-  private j: jscodeshift.JSCodeshift;
+  private readonly j: jscodeshift.JSCodeshift;
 
   /**
    * Creates an instance of ContextAnalyzer.
@@ -22,10 +22,10 @@ export class ContextAnalyzer {
   /**
    * Analyzes the entry points of the project, updates the context map, and optionally logs and saves the dependency graph.
    *
-   * @param {string} entryPointPath - The path to the entry point file.
-   * @param {boolean} [doLog=true] - Whether to log the dependency graph.
-   * @param {boolean} [doSave=true] - Whether to save the dependency graph to files.
-   * @returns {Promise<void>} - A promise that resolves when the analysis is complete.
+   * @param entryPointPath - The path to the entry point file.
+   * @param [doLog=true] - Whether to log the dependency graph.
+   * @param [doSave=true] - Whether to save the dependency graph to files.
+   * @returns - A promise that resolves when the analysis is complete.
    */
   async analyzeEntrypoints(entryPointPath: string, doLog = true, doSave = true): Promise<void> {
     // const analyzer = new ContextAnalyzer();
@@ -317,7 +317,7 @@ export class ContextAnalyzer {
 
         exportContext.exports.forEach((exp) => {
           if (exp.exportedFromFile !== imp.importedFromFile || exp.exportedAs !== imp.importName) {
-            // i don't need this because exports already gives the information so we don't need to be redundant and nest it under imports
+            // We don't need this because exports already gives the information so we don't need to be redundant and nest it under imports
             // if (!(exp.exportedAs === imp.importName && exp.file === imp.file)) {
             return;
             // }
