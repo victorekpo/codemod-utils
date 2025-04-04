@@ -29,6 +29,7 @@ import { VariableDeclarator } from './lib/classes/ast/VariableDeclarator';
 
 // import context
 import { ContextAnalyzer } from "./lib/classes/context/ContextAnalyzer";
+import { GraphTransformer } from "./lib/classes/transform/GraphTransformer";
 
 export {
   // base classes
@@ -59,5 +60,7 @@ export {
   VariableDeclaration,
   VariableDeclarator,
   //context
-  ContextAnalyzer
+  ContextAnalyzer,
+  //transform
+  GraphTransformer
 }
