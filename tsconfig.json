@@ -15,9 +15,18 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
-    "declarationDir": "dist"
+    "declarationDir": "dist",
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/@types"
+    ]
   },
   "include": [
-    "src"
+    "src/**/*.ts",
+    "src/@types/GraphTransformer.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
   ]
 }

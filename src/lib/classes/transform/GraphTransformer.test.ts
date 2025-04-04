@@ -1,4 +1,4 @@
-import { DependencyGraph, TransformationConfig } from "../../../@types/GraphTransformer";
+import type { DependencyGraph, TransformationConfig } from "../../../@types";
 import { GraphTransformer } from "./GraphTransformer";
 import fs from 'node:fs';
 import path from 'node:path';

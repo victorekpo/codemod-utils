@@ -1,7 +1,7 @@
 import jscodeshift from 'jscodeshift';
 import fs from 'node:fs';
 import { resolve } from 'node:path';
-import { DependencyGraph, Position, TransformationConfig, Variable } from "../../../@types/GraphTransformer";
+import type { DependencyGraph, Position, TransformationConfig, Variable } from "../../../@types";
 
 export class GraphTransformer {
   public dependencyGraph: DependencyGraph;
