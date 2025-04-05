@@ -18,6 +18,7 @@ export class GraphTransformer {
 
   // Apply transformation to a specific file at a given position
   applyTransformation(filePath: string, position: Position, variableName: string, transformationFn: (path: any) => void): void {
+    console.log("Applying transformation to:", filePath, "at position:", position, "for variable:", variableName);
     const code = fs.readFileSync(resolve(filePath), 'utf-8');
     let ast = jscodeshift(code);
 
@@ -45,7 +46,8 @@ export class GraphTransformer {
 
   // Method to process the variable's usages and nested usages based on the dependency graph
   processVariableUsage(variable: Variable, variableName: string, dependencyGraph: DependencyGraph, transformationConfig: TransformationConfig): void {
-    const filePath = variable.originalDefinition.file;
+    console.log("Processing variable:", variableName, "in file:", variable.file);
+    const filePath = variable.file;
 
     // Only proceed if the action is rename
     if (transformationConfig.action === "rename") {
@@ -54,7 +56,7 @@ export class GraphTransformer {
       if (variableToTarget === variableName) {
         console.log("Processing main variable:", variableName, "to", newName);
         // Process original definition in the current file
-        this.applyTransformation(filePath, variable.originalDefinition.position, variableName, (path) => {
+        this.applyTransformation(filePath, variable.position, variableName, (path) => {
           path.node.name = newName;
         });
 
@@ -67,6 +69,10 @@ export class GraphTransformer {
         });
 
         // Process nested usages
+        if (!variable.nestedUsages) {
+          console.log("No nested usages found for:", variableName);
+          return;
+        }
         variable.nestedUsages.forEach(nestedUsage => {
           console.log("Processing nested usage:", nestedUsage.file, nestedUsage.position);
           this.applyTransformation(nestedUsage.file, nestedUsage.position, variableName, (path) => {

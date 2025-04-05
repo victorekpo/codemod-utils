@@ -29,7 +29,9 @@ describe('GraphTransformer', () => {
       '/test/main.js': {
         variables: {
           username: {
-            originalDefinition: { file: '/test/main.js', position: { line: 8, column: 10 } },
+            originalDefinition: "const username = res.username;",
+            file: '/test/main.js',
+            position: { line: 8, column: 10 },
             usages: [
               { file: '/test/main.js', position: { line: 8, column: 10 } },
               { file: '/test/main.js', position: { line: 10, column: 6 } }

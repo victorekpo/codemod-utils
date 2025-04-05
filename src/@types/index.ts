@@ -9,7 +9,9 @@ export interface VariableUsage {
 }
 
 export interface Variable {
-  originalDefinition: { file: string; position: Position };
+  originalDefinition: string;
+  file: string;
+  position: Position
   usages: VariableUsage[];
   nestedUsages: VariableUsage[];
   exportedFromFile?: string;
