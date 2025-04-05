@@ -1,8 +1,8 @@
 import { ContextAnalyzer } from "./ContextAnalyzer";
 import fs from "fs/promises";
 import path from "node:path";
-import { mockFiles } from "../testUtils/mockFiles";
-import { expectedGroupedGraph } from "../testUtils/sampleGraph";
+import { mockFiles } from "../../../testUtils/context/mockFiles";
+import { expectedGroupedGraph } from "../../../testUtils/context/sampleGraph";
 
 jest.mock("fs/promises");
 

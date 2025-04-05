@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from "uuid";
  */
 export class ContextAnalyzer {
   public contextMap: Map<string, any>;
-  private j: jscodeshift.JSCodeshift;
+  private readonly j: jscodeshift.JSCodeshift;
 
   /**
    * Creates an instance of ContextAnalyzer.
@@ -22,10 +22,10 @@ export class ContextAnalyzer {
   /**
    * Analyzes the entry points of the project, updates the context map, and optionally logs and saves the dependency graph.
    *
-   * @param {string} entryPointPath - The path to the entry point file.
-   * @param {boolean} [doLog=true] - Whether to log the dependency graph.
-   * @param {boolean} [doSave=true] - Whether to save the dependency graph to files.
-   * @returns {Promise<void>} - A promise that resolves when the analysis is complete.
+   * @param entryPointPath - The path to the entry point file.
+   * @param [doLog=true] - Whether to log the dependency graph.
+   * @param [doSave=true] - Whether to save the dependency graph to files.
+   * @returns - A promise that resolves when the analysis is complete.
    */
   async analyzeEntrypoints(entryPointPath: string, doLog = true, doSave = true): Promise<void> {
     // const analyzer = new ContextAnalyzer();
@@ -317,7 +317,7 @@ export class ContextAnalyzer {
 
         exportContext.exports.forEach((exp) => {
           if (exp.exportedFromFile !== imp.importedFromFile || exp.exportedAs !== imp.importName) {
-            // i don't need this because exports already gives the information so we don't need to be redundant and nest it under imports
+            // We don't need this because exports already gives the information so we don't need to be redundant and nest it under imports
             // if (!(exp.exportedAs === imp.importName && exp.file === imp.file)) {
             return;
             // }
@@ -374,7 +374,41 @@ export class ContextAnalyzer {
     // Step 2: Process each file group separately
     for (const [file, contexts] of groupedByFile) {
       for (const ctx of contexts) {
-        this.nestUsagesRecursively(ctx, contexts);
+        this.nestVariableUsages(ctx, contexts);
+      }
+    }
+  }
+
+  /**
+   * Nests variable usages within the context by linking extracted variables to their corresponding usages.
+   *
+   * @param ctx - The context containing variable usages.
+   * @param contexts - The array of contexts within the same file.
+   */
+  nestVariableUsages(ctx: any, contexts: any[]): void {
+    if (!ctx.usages || ctx.usages.length === 0) return;
+
+    for (const usage of ctx.usages) {
+      // Step 1: Extract variables from the usage's code
+      let extractedVariables = this.extractVariablesFromCode(usage.fullLine);
+
+      for (const extractedVariable of extractedVariables) {
+        // Step 2: Check if the extracted variable exists in the context map of the same file
+        for (const otherCtx of contexts) {
+          const isFound = otherCtx.varName === extractedVariable;
+          if (isFound) {
+            // Step 3: Add the found context's usages to the current usage
+            if (usage?.nestedUsages?.length > 0 && otherCtx?.usages?.length) {
+              console.log("Found more nested usages for variable:", extractedVariable, "; usage variable:", usage.code);
+              console.log("old length", usage.nestedUsages.length)
+              usage.nestedUsages.push(...otherCtx.usages);
+              console.log("new length", usage.nestedUsages.length)
+            } else {
+              console.log("Found single nested usage for variable:", extractedVariable, "; usage variable:", usage.code);
+              usage.nestedUsages = otherCtx.usages;
+            }
+          }
+        }
       }
     }
   }
@@ -382,7 +416,6 @@ export class ContextAnalyzer {
   /**
    * Connects the dependency graph by linking imports and exports.
    * @param contextMap - The map storing all variable contexts.
-   * @returns
    */
   connectDependencyGraph(contextMap: Map<string, any>): void {
     console.log("Connecting dependency graph...");
@@ -725,6 +758,10 @@ export class ContextAnalyzer {
     return this.contextMap;
   }
 
+  getGroupedGraph(): any {
+    return this.groupGraphByFile();
+  }
+
   convertGraphToObject(): any {
     return Object.fromEntries(this.contextMap);
   }
@@ -790,27 +827,5 @@ export class ContextAnalyzer {
     }
 
     return names;
-  }
-
-  private nestUsagesRecursively(ctx: any, contexts: any[]): void {
-    if (!ctx.usages || ctx.usages.length === 0) return;
-
-    for (const usage of ctx.usages) {
-      // Step 1: Extract variables from the usage's code
-      let extractedVariables = this.extractVariablesFromCode(usage.fullLine);
-
-      for (const extractedVariable of extractedVariables) {
-        // Step 2: Check if the extracted variable exists in the context map of the same file
-        for (const otherCtx of contexts) {
-          const isFound = otherCtx.varName === extractedVariable;
-          if (isFound) {
-            if (!usage.nestedUsages) {
-              usage.nestedUsages = [];
-            }
-            usage.nestedUsages.push(otherCtx.usages);
-          }
-        }
-      }
-    }
   }
 }

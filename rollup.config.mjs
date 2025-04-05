@@ -1,7 +1,7 @@
 import typescript from '@rollup/plugin-typescript';
 import nodeResolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import { resolve } from "node:path";
+import {resolve} from "node:path";
 import {builtinModules, createRequire} from "node:module";
 
 // Read the package.json
