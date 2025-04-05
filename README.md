@@ -8,7 +8,7 @@ analyzing and transforming code, particularly focusing on dependency graphs and 
 To install the library, use npm:
 
 ```sh
-npm install @victorekpo/codemod-utils
+npm install codemod-utils
 ```
 
 ## Usage
@@ -19,7 +19,7 @@ The `ContextAnalyzer` class is used to analyze the context of code files, tracki
 helps in understanding the structure and dependencies within a codebase.
 
 ```typescript
-import { ContextAnalyzer } from '@victorekpo/codemod-utils';
+import { ContextAnalyzer } from 'codemod-utils';
 
 const analyzer = new ContextAnalyzer();
 await analyzer.analyzeEntrypoints('/path/to/entrypoint.js', false, false);
@@ -33,7 +33,7 @@ The `GraphTransformer` class is used to transform dependency graphs. It allows y
 renaming variables across the entire codebase.
 
 ```typescript
-import { GraphTransformer, TransformationConfig, DependencyGraph } from '@victorekpo/codemod-utils';
+import { GraphTransformer, TransformationConfig, DependencyGraph } from 'codemod-utils';
 
 const testGraph: DependencyGraph = {
   'codeToMigrate/migrated/index.js': {
